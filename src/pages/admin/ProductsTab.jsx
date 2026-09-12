@@ -158,10 +158,108 @@ export function ProductsTab() {
         </button>
       </div>
 
-      {/* Products Table */}
-      <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
+      {/* MOBILE PRODUCTS VIEW: Responsive Card List (visible on phones, hidden on desktop) */}
+      <div className="block md:hidden space-y-3">
+        {products.length === 0 ? (
+          <div className="text-center py-10 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
+            Aucun produit dans le catalogue.
+          </div>
+        ) : (
+          products.map((p) => {
+            const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
+            return (
+              <div
+                key={p.id}
+                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 shadow-card"
+              >
+                {/* Card Top: Image + Names + Price */}
+                <div className="flex items-start gap-3">
+                  <div className="relative shrink-0">
+                    <img
+                      src={p.image || "/biled-lens.jpg"}
+                      alt={p.nameFr}
+                      className="w-16 h-16 rounded-xl object-cover bg-zinc-950 border border-zinc-700"
+                    />
+                    {imgCount > 1 && (
+                      <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
+                        <Camera className="w-2.5 h-2.5" />
+                        {imgCount}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-sm line-clamp-1">{p.nameFr}</div>
+                    <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                    <div className="mt-1 font-mono font-black text-brand-redLight text-sm">
+                      {p.price?.toLocaleString()} DZD
+                    </div>
+                  </div>
+                </div>
+
+                {/* Badges: Category, Stock, Custom Badge */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-800/80">
+                  <span className="px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium">
+                    {p.category}
+                  </span>
+
+                  <span
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
+                      p.inStock
+                        ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
+                        : "bg-rose-950 text-rose-400 border border-rose-500/40"
+                    }`}
+                  >
+                    {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
+                  </span>
+
+                  {p.badgeFr && (
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
+                      {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Buttons: Modifier & Supprimer */}
+                <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/60">
+                  <button
+                    onClick={() => {
+                      setEditingProduct({
+                        ...p,
+                        images: Array.isArray(p.images) && p.images.length > 0
+                          ? [...p.images]
+                          : (p.image ? [p.image] : [])
+                      });
+                      setShowProductModal(true);
+                    }}
+                    className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>{isRtl ? "تعديل" : "Modifier"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Supprimer ce produit ?")) {
+                        deleteProduct(p.id);
+                      }
+                    }}
+                    className="py-2 px-3 rounded-xl bg-rose-950/30 hover:bg-rose-950 text-rose-400 border border-rose-800/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isRtl ? "حذف" : "Supprimer"}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* DESKTOP VIEW: Products Table (visible on md+, scrollable with min-w-[720px]) */}
+      <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs sm:text-sm">
+          <table className="w-full text-start text-xs sm:text-sm min-w-[720px]">
             <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
               <tr>
                 <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colProduct}</th>

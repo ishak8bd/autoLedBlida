@@ -432,6 +432,60 @@ export function DataProvider({ children }) {
     return { success: true };
   };
 
+  // 8b. Admin: Save / Edit Appointment
+  const saveAppointment = async (aptData) => {
+    const isEdit = Boolean(aptData.id);
+    const url = isEdit
+      ? `${API_BASE}/api/admin/appointments/${aptData.id}`
+      : `${API_BASE}/api/admin/appointments`;
+    const method = isEdit ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(aptData)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const savedApt = json.appointment;
+        setData((prev) => {
+          let appointments = prev.appointments || [];
+          if (isEdit) {
+            appointments = appointments.map((a) => (a.id === savedApt.id ? savedApt : a));
+          } else {
+            appointments = [savedApt, ...appointments];
+          }
+          return { ...prev, appointments };
+        });
+        return { success: true, appointment: savedApt };
+      }
+    } catch (e) {
+      console.warn("Offline appointment save", e);
+    }
+
+    // Local fallback
+    const targetId = aptData.id || ("apt-" + Date.now());
+    const fallbackApt = {
+      ...aptData,
+      id: targetId,
+      status: aptData.status || "nouveau",
+      createdAt: aptData.createdAt || new Date().toISOString()
+    };
+    setData((prev) => {
+      let appointments = [...(prev.appointments || [])];
+      if (isEdit) {
+        appointments = appointments.map((a) => (a.id === targetId ? fallbackApt : a));
+      } else {
+        appointments = [fallbackApt, ...appointments];
+      }
+      const updated = { ...prev, appointments };
+      localStorage.setItem("autoled_cache", JSON.stringify(updated));
+      return updated;
+    });
+    return { success: true, appointment: fallbackApt };
+  };
+
   // 9. Client: Submit Order
   const createOrder = async (orderData) => {
     try {
@@ -529,6 +583,65 @@ export function DataProvider({ children }) {
     return { success: true };
   };
 
+  // 10b. Admin: Save / Edit Order
+  const saveOrder = async (orderData) => {
+    const isEdit = Boolean(orderData.id);
+    const url = isEdit
+      ? `${API_BASE}/api/admin/orders/${orderData.id}`
+      : `${API_BASE}/api/admin/orders`;
+    const method = isEdit ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const savedOrder = json.order;
+        setData((prev) => {
+          let orders = prev.orders || [];
+          if (isEdit) {
+            orders = orders.map((o) => (o.id === savedOrder.id ? savedOrder : o));
+          } else {
+            orders = [savedOrder, ...orders];
+          }
+          return { ...prev, orders };
+        });
+        return { success: true, order: savedOrder };
+      }
+    } catch (e) {
+      console.warn("Offline order save", e);
+    }
+
+    // Local fallback
+    const targetId = orderData.id || ("cmd-" + Date.now());
+    const qty = Math.max(1, Number(orderData.quantity) || 1);
+    const price = Number(orderData.productPrice) || 0;
+    const fallbackOrder = {
+      ...orderData,
+      id: targetId,
+      quantity: qty,
+      productPrice: price,
+      total: orderData.total !== undefined ? Number(orderData.total) : (price * qty),
+      status: orderData.status || "nouveau",
+      createdAt: orderData.createdAt || new Date().toISOString()
+    };
+    setData((prev) => {
+      let orders = [...(prev.orders || [])];
+      if (isEdit) {
+        orders = orders.map((o) => (o.id === targetId ? fallbackOrder : o));
+      } else {
+        orders = [fallbackOrder, ...orders];
+      }
+      const updated = { ...prev, orders };
+      localStorage.setItem("autoled_cache", JSON.stringify(updated));
+      return updated;
+    });
+    return { success: true, order: fallbackOrder };
+  };
+
   const uploadImage = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -563,6 +676,7 @@ export function DataProvider({ children }) {
         error,
         refresh: loadData,
         createAppointment,
+        saveAppointment,
         verifyPin,
         changePin,
         updateSettings,
@@ -576,6 +690,7 @@ export function DataProvider({ children }) {
         updateAppointmentStatus,
         deleteAppointment,
         createOrder,
+        saveOrder,
         updateOrderStatus,
         deleteOrder
       }}

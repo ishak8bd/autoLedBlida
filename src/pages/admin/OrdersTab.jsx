@@ -1,17 +1,22 @@
 import React, { useState } from "react";
-import { Search, Download, Phone, MessageSquare, Trash2, ShoppingBag, Truck, CheckCircle2, Clock } from "lucide-react";
+import { Search, Download, Phone, MessageSquare, Trash2, ShoppingBag, Truck, CheckCircle2, Clock, Plus, Edit, X, AlertCircle, MapPin, User, Tag } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
-import { getWhatsAppUrl } from "../../data/algeriaWilayasCommunes";
+import { getWhatsAppUrl, ALGERIA_WILAYAS, getCommunesByWilaya, isValidAlgerianPhone, cleanAlgerianPhone } from "../../data/algeriaWilayasCommunes";
 
 export function OrdersTab() {
   const { t, isRtl } = useLanguage();
-  const { data, updateOrderStatus, deleteOrder } = useData();
+  const { data, saveOrder, updateOrderStatus, deleteOrder } = useData();
 
   const [orderFilter, setOrderFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const orders = data?.orders || [];
+  const products = data?.products || [];
 
   // Filter orders by status & search
   const filteredOrders = orders.filter((o) => {
@@ -53,7 +58,7 @@ export function OrdersTab() {
       `"${(o.productName || "").replace(/"/g, '""')}"`,
       o.quantity || 1,
       o.productPrice || 0,
-      o.total || (o.productPrice * (o.quantity || 1)),
+      o.total || ((o.productPrice || 0) * (o.quantity || 1)),
       `"${(o.vehicleNote || "").replace(/"/g, '""')}"`,
       o.status || "nouveau"
     ]);
@@ -68,9 +73,116 @@ export function OrdersTab() {
     document.body.removeChild(link);
   };
 
+  const handleOpenAdd = () => {
+    const firstProd = products[0];
+    const initialPrice = firstProd ? firstProd.price : 8500;
+    setEditingOrder({
+      customerName: "",
+      phone: "",
+      wilaya: "09 - Blida",
+      commune: "",
+      productId: firstProd?.id || "",
+      productName: firstProd?.nameFr || "Projecteur Bi-LED",
+      productPrice: initialPrice,
+      quantity: 1,
+      total: initialPrice,
+      vehicleNote: "",
+      status: "nouveau"
+    });
+    setFormError("");
+    setShowOrderModal(true);
+  };
+
+  const handleOpenEdit = (order) => {
+    const qty = order.quantity || 1;
+    const price = order.productPrice || 0;
+    const total = order.total !== undefined ? order.total : (price * qty);
+
+    setEditingOrder({
+      ...order,
+      customerName: order.customerName || "",
+      phone: order.phone || "",
+      wilaya: order.wilaya || "09 - Blida",
+      commune: order.commune || "",
+      productId: order.productId || "",
+      productName: order.productName || "",
+      productPrice: price,
+      quantity: qty,
+      total: total,
+      vehicleNote: order.vehicleNote || "",
+      status: order.status || "nouveau"
+    });
+    setFormError("");
+    setShowOrderModal(true);
+  };
+
+  const handleProductSelectChange = (e) => {
+    const selectedProdId = e.target.value;
+    if (selectedProdId === "custom") {
+      setEditingOrder((prev) => ({
+        ...prev,
+        productId: "",
+        productName: ""
+      }));
+      return;
+    }
+    const found = products.find((p) => p.id === selectedProdId);
+    if (found) {
+      const qty = Number(editingOrder.quantity) || 1;
+      setEditingOrder((prev) => ({
+        ...prev,
+        productId: found.id,
+        productName: found.nameFr || found.nameAr || "",
+        productPrice: found.price || 0,
+        total: (found.price || 0) * qty
+      }));
+    }
+  };
+
+  const handleSaveOrder = async (e) => {
+    e.preventDefault();
+    setFormError("");
+
+    if (!editingOrder.customerName?.trim() || !editingOrder.phone?.trim() || !editingOrder.productName?.trim()) {
+      setFormError(isRtl ? "يرجى ملء اسم الزبون، رقم الهاتف والمنتج" : "Veuillez remplir le nom du client, le téléphone et le produit");
+      return;
+    }
+
+    if (!isValidAlgerianPhone(editingOrder.phone)) {
+      setFormError(isRtl ? "رقم الهاتف غير صحيح. يجب أن يتكون من 10 أرقام ويبدأ بـ 05، 06 أو 07." : "Numéro de téléphone invalide (10 chiffres, commençant par 05, 06 ou 07)");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const qty = Math.max(1, Number(editingOrder.quantity) || 1);
+      const price = Number(editingOrder.productPrice) || 0;
+      const finalTotal = editingOrder.total !== undefined ? Number(editingOrder.total) : (price * qty);
+
+      const payload = {
+        ...editingOrder,
+        customerName: editingOrder.customerName.trim(),
+        phone: cleanAlgerianPhone(editingOrder.phone),
+        quantity: qty,
+        productPrice: price,
+        total: finalTotal
+      };
+      await saveOrder(payload);
+      setShowOrderModal(false);
+      setEditingOrder(null);
+    } catch {
+      setFormError(isRtl ? "حدث خطأ أثناء حفظ الطلبية" : "Erreur lors de l'enregistrement de la commande");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Communes list for currently selected wilaya in modal
+  const currentCommunes = editingOrder?.wilaya ? getCommunesByWilaya(editingOrder.wilaya) : [];
+
   return (
     <div className="space-y-6 text-start">
-      {/* Title & Description */}
+      {/* Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -78,18 +190,31 @@ export function OrdersTab() {
             <span>{t.admin.ordersTab.title}</span>
           </h3>
           <p className="text-xs text-zinc-400">
-            {t.admin.ordersTab.subtitle}
+            {isRtl
+              ? "متابعة وتعديل وإضافة وحذف طلبيات التوصيل للـ 69 ولاية"
+              : "Suivi, modification, ajout et suppression des commandes d'expédition (69 wilayas)."}
           </p>
         </div>
 
-        <button
-          onClick={exportCsv}
-          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white flex items-center gap-1.5 shadow-sm shrink-0"
-          title="Exporter en CSV"
-        >
-          <Download className="w-4 h-4" />
-          <span>{t.admin.ordersTab.exportCsvBtn}</span>
-        </button>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button
+            onClick={handleOpenAdd}
+            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white text-xs font-bold shadow-glow-red flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t.admin.ordersTab.addBtn || (isRtl ? "طلب جديد" : "Nouvelle Commande")}</span>
+          </button>
+
+          <button
+            onClick={exportCsv}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white flex items-center gap-1.5 shadow-sm shrink-0"
+            title="Exporter en CSV"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">{t.admin.ordersTab.exportCsvBtn}</span>
+            <span className="inline sm:hidden">CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -134,10 +259,167 @@ export function OrdersTab() {
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
+      {/* MOBILE VIEW: Cards (visible on phones, hidden on desktop) */}
+      <div className="block md:hidden space-y-3">
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
+            <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-zinc-600 opacity-50" />
+            <div>{t.admin.ordersTab.noData}</div>
+          </div>
+        ) : (
+          filteredOrders.map((o) => {
+            const dateStr = o.createdAt
+              ? new Date(o.createdAt).toLocaleDateString("fr-FR", {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })
+              : "";
+            const totalVal = o.total !== undefined ? o.total : ((o.productPrice || 0) * (o.quantity || 1));
+
+            return (
+              <div
+                key={o.id}
+                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 shadow-card"
+              >
+                {/* Header: ID + Date + Total */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-mono font-bold text-white text-xs flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-brand-red" />
+                      <span>{o.id}</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5 font-mono">
+                      <Clock className="w-3 h-3 text-zinc-500" />
+                      <span>{dateStr}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-end">
+                    <div className="font-mono font-black text-emerald-400 text-sm">
+                      {totalVal?.toLocaleString()} DZD
+                    </div>
+                    <div className="text-[10px] text-zinc-400 font-mono">
+                      {o.quantity || 1} {o.quantity > 1 ? "unités" : "unité"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Client & Destination */}
+                <div className="pt-2 border-t border-zinc-800/80 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>{o.customerName}</span>
+                    </div>
+                    <div className="font-bold text-emerald-400 text-xs flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      <span>{o.wilaya}</span>
+                    </div>
+                  </div>
+                  {o.commune && (
+                    <div className="text-[11px] text-zinc-400 pl-5 rtl:pl-0 rtl:pr-5">
+                      {o.commune}
+                    </div>
+                  )}
+                </div>
+
+                {/* Product & Vehicle Note */}
+                <div className="pt-2 border-t border-zinc-800/80 text-xs">
+                  <div className="font-semibold text-white line-clamp-1">
+                    📦 {o.productName}
+                  </div>
+                  {o.vehicleNote && (
+                    <div className="text-[11px] text-brand-redLight font-medium truncate mt-0.5">
+                      🚗 {o.vehicleNote}
+                    </div>
+                  )}
+                </div>
+
+                {/* Phone, Status & Actions */}
+                <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <a
+                      href={`tel:${o.phone}`}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1 text-xs font-mono font-bold"
+                      title={t.admin.ordersTab.callBtn}
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-[11px]">{o.phone}</span>
+                    </a>
+
+                    <a
+                      href={getWhatsAppUrl(
+                        o.phone,
+                        isRtl
+                          ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك (${o.productName}) من متجر أوتو ليد البليدة...`
+                          : `Bonjour ${o.customerName}, concernant votre commande (${o.productName}) chez AutoLedBlida...`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white"
+                      title={t.admin.ordersTab.whatsappBtn}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                    </a>
+                  </div>
+
+                  {/* Status selector */}
+                  <select
+                    value={o.status || "nouveau"}
+                    onChange={(e) => updateOrderStatus(o.id, e.target.value)}
+                    className={`text-xs font-bold px-2 py-1.5 rounded-lg border focus:outline-none ${
+                      o.status === "confirme"
+                        ? "bg-indigo-950/80 border-indigo-500/50 text-indigo-300"
+                        : o.status === "expedie"
+                        ? "bg-amber-950/80 border-amber-500/50 text-amber-300"
+                        : o.status === "livre"
+                        ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-300"
+                        : o.status === "annule"
+                        ? "bg-rose-950/80 border-rose-500/50 text-rose-400"
+                        : "bg-sky-950/80 border-sky-500/50 text-sky-300"
+                    }`}
+                  >
+                    <option value="nouveau">Nouveau</option>
+                    <option value="confirme">Confirmé</option>
+                    <option value="expedie">Expédié</option>
+                    <option value="livre">Livré</option>
+                    <option value="annule">Annulé</option>
+                  </select>
+                </div>
+
+                {/* Bottom Edit & Delete buttons */}
+                <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/60">
+                  <button
+                    onClick={() => handleOpenEdit(o)}
+                    className="flex-1 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>{t.admin.ordersTab.editBtn || (isRtl ? "تعديل" : "Modifier")}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(t.admin.ordersTab.deleteConfirm)) {
+                        deleteOrder(o.id);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-rose-950/30 hover:bg-rose-950 text-rose-400 border border-rose-800/40 font-bold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isRtl ? "حذف" : "Supprimer"}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* DESKTOP VIEW: Table (visible on md+, scrollable with min-w-[750px]) */}
+      <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs sm:text-sm">
+          <table className="w-full text-start text-xs sm:text-sm min-w-[750px]">
             <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
               <tr>
                 <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colOrder}</th>
@@ -168,9 +450,10 @@ export function OrdersTab() {
                       })
                     : "";
 
+                  const totalVal = o.total !== undefined ? o.total : ((o.productPrice || 0) * (o.quantity || 1));
+
                   return (
                     <tr key={o.id} className="hover:bg-zinc-800/40 transition-colors">
-                      
                       {/* Order Ref & Date */}
                       <td className="p-3.5 px-4">
                         <div className="font-mono font-bold text-white text-xs">
@@ -230,7 +513,7 @@ export function OrdersTab() {
 
                       {/* Total Price */}
                       <td className="p-3.5 px-4 font-mono font-black text-white text-sm whitespace-nowrap">
-                        {(o.total || (o.productPrice * (o.quantity || 1)))?.toLocaleString()} DZD
+                        {totalVal?.toLocaleString()} DZD
                       </td>
 
                       {/* Status Selector */}
@@ -286,7 +569,16 @@ export function OrdersTab() {
                             <MessageSquare className="w-3.5 h-3.5 fill-current" />
                           </a>
 
-                          {/* Delete */}
+                          {/* Edit button */}
+                          <button
+                            onClick={() => handleOpenEdit(o)}
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
+                            title="Modifier"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete button */}
                           <button
                             onClick={() => {
                               if (window.confirm(t.admin.ordersTab.deleteConfirm)) {
@@ -300,7 +592,6 @@ export function OrdersTab() {
                           </button>
                         </div>
                       </td>
-
                     </tr>
                   );
                 })
@@ -309,6 +600,285 @@ export function OrdersTab() {
           </table>
         </div>
       </div>
+
+      {/* ADD / EDIT ORDER MODAL */}
+      {showOrderModal && editingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <h4 className="text-base font-bold text-white flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-brand-red" />
+                <span>
+                  {editingOrder.id
+                    ? t.admin.ordersTab.editTitle || (isRtl ? "تعديل الطلبية" : "Modifier la Commande")
+                    : t.admin.ordersTab.addTitle || (isRtl ? "إضافة طلبية جديدة" : "Créer une Commande")}
+                </span>
+              </h4>
+              <button
+                onClick={() => {
+                  setShowOrderModal(false);
+                  setEditingOrder(null);
+                }}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveOrder} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Client Name */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "اسم الزبون *" : "Nom du client *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingOrder.customerName}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, customerName: e.target.value })}
+                    placeholder="Ex: Mohamed Amine"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "رقم الهاتف *" : "Téléphone *"}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingOrder.phone}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, phone: e.target.value })}
+                    placeholder="0555 12 34 56"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Wilaya (1 to 69) */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "الولاية *" : "Wilaya de livraison *"}
+                  </label>
+                  <select
+                    value={editingOrder.wilaya}
+                    onChange={(e) => {
+                      const newWilaya = e.target.value;
+                      const communes = getCommunesByWilaya(newWilaya);
+                      setEditingOrder({
+                        ...editingOrder,
+                        wilaya: newWilaya,
+                        commune: communes[0] || ""
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                  >
+                    {ALGERIA_WILAYAS.map((w) => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Commune */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "البلدية أو العنوان" : "Commune / Adresse"}
+                  </label>
+                  {currentCommunes.length > 0 ? (
+                    <select
+                      value={editingOrder.commune}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    >
+                      <option value="">Sélectionner la commune</option>
+                      {currentCommunes.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editingOrder.commune}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
+                      placeholder="Commune / Adresse"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Product Selection */}
+              <div>
+                <label className="block text-zinc-300 font-bold mb-1">
+                  {isRtl ? "المنتج المطلوب *" : "Produit du catalogue *"}
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={editingOrder.productId || "custom"}
+                    onChange={handleProductSelectChange}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-medium"
+                  >
+                    <option value="custom">-- Saisir manuellement ou produit hors catalogue --</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nameFr} ({p.price?.toLocaleString()} DZD)
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    required
+                    value={editingOrder.productName}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, productName: e.target.value })}
+                    placeholder="Nom du produit"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Quantity */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "الكمية" : "Quantité"}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editingOrder.quantity}
+                    onChange={(e) => {
+                      const newQty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      const price = Number(editingOrder.productPrice) || 0;
+                      setEditingOrder({
+                        ...editingOrder,
+                        quantity: newQty,
+                        total: price * newQty
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Unit Price */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "سعر الوحدة (د.ج)" : "Prix unitaire (DZD)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    required
+                    value={editingOrder.productPrice}
+                    onChange={(e) => {
+                      const newPrice = Math.max(0, parseInt(e.target.value, 10) || 0);
+                      const qty = Number(editingOrder.quantity) || 1;
+                      setEditingOrder({
+                        ...editingOrder,
+                        productPrice: newPrice,
+                        total: newPrice * qty
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Total */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "المجموع (د.ج)" : "Total (DZD)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    required
+                    value={editingOrder.total}
+                    onChange={(e) => {
+                      setEditingOrder({
+                        ...editingOrder,
+                        total: Math.max(0, parseInt(e.target.value, 10) || 0)
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-black focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Vehicle Note */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "ملاحظة / طراز السيارة" : "Véhicule ou remarque"}
+                  </label>
+                  <input
+                    type="text"
+                    value={editingOrder.vehicleNote}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, vehicleNote: e.target.value })}
+                    placeholder="Ex: Clio 4, ampoules H7..."
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "حالة الطلبية" : "Statut de la commande"}
+                  </label>
+                  <select
+                    value={editingOrder.status || "nouveau"}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-bold focus:outline-none focus:border-brand-red"
+                  >
+                    <option value="nouveau">Nouveau</option>
+                    <option value="confirme">Confirmé</option>
+                    <option value="expedie">Expédié</option>
+                    <option value="livre">Livré</option>
+                    <option value="annule">Annulé</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOrderModal(false);
+                    setEditingOrder(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold"
+                >
+                  {isRtl ? "إلغاء" : "Annuler"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold shadow-glow-red disabled:opacity-50"
+                >
+                  {saving
+                    ? (isRtl ? "جاري الحفظ..." : "Enregistrement...")
+                    : (isRtl ? "حفظ الطلبية" : "Enregistrer la Commande")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

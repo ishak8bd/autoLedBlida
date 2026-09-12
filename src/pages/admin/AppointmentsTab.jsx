@@ -1,26 +1,57 @@
 import React, { useState } from "react";
-import { Search, Download, Phone, MessageSquare, Trash2 } from "lucide-react";
+import { Search, Download, Phone, MessageSquare, Trash2, Plus, Edit, X, Calendar, Car, User, Wrench, Clock, AlertCircle } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
-import { getWhatsAppUrl } from "../../data/algeriaWilayasCommunes";
+import { getWhatsAppUrl, isValidAlgerianPhone, cleanAlgerianPhone } from "../../data/algeriaWilayasCommunes";
 
 export function AppointmentsTab() {
   const { t, isRtl } = useLanguage();
-  const { data, updateAppointmentStatus, deleteAppointment } = useData();
+  const { data, saveAppointment, updateAppointmentStatus, deleteAppointment } = useData();
 
   const [aptFilter, setAptFilter] = useState("all");
   const [aptSearch, setAptSearch] = useState("");
+  const [editingApt, setEditingApt] = useState(null);
+  const [showAptModal, setShowAptModal] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const appointments = data?.appointments || [];
+
+  // Default preset services for quick selection
+  const serviceOptions = [
+    "Installation Bi-LED",
+    "Rénovation & Polissage d'optiques",
+    "Angel Eyes RGB / LED",
+    "Conversion Full LED",
+    "Kit Xénon 55W Fast Bright",
+    "Réparation étanchéité & buée",
+    "Personnalisation & Peinture masque noir"
+  ];
 
   // Filtered Appointments
   const filteredAppointments = appointments.filter((a) => {
     const matchesStatus = aptFilter === "all" || a.status === aptFilter;
+    const q = (aptSearch || "").toLowerCase();
     const matchesQuery = !aptSearch ||
-      (a.name || "").toLowerCase().includes(aptSearch.toLowerCase()) ||
-      (a.phone || "").includes(aptSearch) ||
-      (a.vehicle || "").toLowerCase().includes(aptSearch.toLowerCase());
+      (a.name || "").toLowerCase().includes(q) ||
+      (a.phone || "").includes(q) ||
+      (a.vehicle || "").toLowerCase().includes(q) ||
+      (a.service || "").toLowerCase().includes(q);
     return matchesStatus && matchesQuery;
+  });
+
+  // Rank by preferredDate (Date souhaitée) ascending, tie-breaker by createdAt (Date de réservation) ascending
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
+    const dateA = a.preferredDate || "";
+    const dateB = b.preferredDate || "";
+    if (dateA !== dateB) {
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB);
+    }
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeA - timeB;
   });
 
   const exportCsv = () => {
@@ -48,37 +79,89 @@ export function AppointmentsTab() {
     document.body.removeChild(link);
   };
 
+  const handleOpenAdd = () => {
+    setEditingApt({
+      name: "",
+      phone: "",
+      vehicle: "",
+      service: serviceOptions[0],
+      preferredDate: new Date().toISOString().split("T")[0],
+      status: "nouveau",
+      message: ""
+    });
+    setFormError("");
+    setShowAptModal(true);
+  };
+
+  const handleOpenEdit = (apt) => {
+    setEditingApt({
+      ...apt,
+      name: apt.name || "",
+      phone: apt.phone || "",
+      vehicle: apt.vehicle || "",
+      service: apt.service || serviceOptions[0],
+      preferredDate: apt.preferredDate || new Date().toISOString().split("T")[0],
+      status: apt.status || "nouveau",
+      message: apt.message || ""
+    });
+    setFormError("");
+    setShowAptModal(true);
+  };
+
+  const handleSaveAppointment = async (e) => {
+    e.preventDefault();
+    setFormError("");
+
+    if (!editingApt.name?.trim() || !editingApt.phone?.trim() || !editingApt.vehicle?.trim()) {
+      setFormError(isRtl ? "يرجى ملء الاسم، الهاتف ونوع السيارة" : "Veuillez remplir le nom, téléphone et véhicule");
+      return;
+    }
+
+    if (!isValidAlgerianPhone(editingApt.phone)) {
+      setFormError(isRtl ? "رقم الهاتف غير صحيح. يجب أن يتكون من 10 أرقام ويبدأ بـ 05، 06 أو 07." : "Numéro de téléphone invalide (10 chiffres, commençant par 05, 06 ou 07)");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        ...editingApt,
+        phone: cleanAlgerianPhone(editingApt.phone)
+      };
+      await saveAppointment(payload);
+      setShowAptModal(false);
+      setEditingApt(null);
+    } catch {
+      setFormError(isRtl ? "حدث خطأ أثناء الحفظ" : "Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-start">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1">
-          {["all", "nouveau", "confirme", "termine", "annule"].map((st) => (
-            <button
-              key={st}
-              onClick={() => setAptFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${
-                aptFilter === st
-                  ? "bg-zinc-100 text-zinc-950 font-black"
-                  : "bg-zinc-900 text-zinc-400 hover:text-white"
-              }`}
-            >
-              {st === "all" ? t.admin.appointmentsTab.filterAll : st}
-            </button>
-          ))}
+      {/* Top Header: Title & Main Action Buttons */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-brand-red" />
+            <span>{t.admin.appointmentsTab.title}</span>
+          </h3>
+          <p className="text-xs text-zinc-400">
+            {isRtl
+              ? "ترتيب حسب اليوم المطلوب ثم تاريخ الحجز مع إمكانية التعديل والإضافة الكاملة"
+              : "Classés par date souhaitée puis date de réservation. Gestion complète (Ajout / Modification / Suppression)."}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
-            <input
-              type="text"
-              value={aptSearch}
-              onChange={(e) => setAptSearch(e.target.value)}
-              placeholder={t.admin.appointmentsTab.search}
-              className="w-full pl-9 pr-4 rtl:pl-4 rtl:pr-9 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-            />
-          </div>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button
+            onClick={handleOpenAdd}
+            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white text-xs font-bold shadow-glow-red flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t.admin.appointmentsTab.addBtn || (isRtl ? "موعد جديد" : "Nouveau Rendez-vous")}</span>
+          </button>
 
           <button
             onClick={exportCsv}
@@ -91,10 +174,173 @@ export function AppointmentsTab() {
         </div>
       </div>
 
-      {/* Appointments Table */}
-      <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
+      {/* Filter and Search Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 scrollbar-none">
+          {["all", "nouveau", "confirme", "termine", "annule"].map((st) => (
+            <button
+              key={st}
+              onClick={() => setAptFilter(st)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors whitespace-nowrap ${
+                aptFilter === st
+                  ? "bg-zinc-100 text-zinc-950 font-black"
+                  : "bg-zinc-900 text-zinc-400 hover:text-white"
+              }`}
+            >
+              {st === "all" ? t.admin.appointmentsTab.filterAll : st}
+              {st !== "all" && (
+                <span className="ml-1.5 rtl:mr-1.5 px-1.5 py-0.2 rounded-full bg-zinc-800 text-[10px] text-zinc-300">
+                  {appointments.filter((a) => a.status === st).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
+          <input
+            type="text"
+            value={aptSearch}
+            onChange={(e) => setAptSearch(e.target.value)}
+            placeholder={t.admin.appointmentsTab.search}
+            className="w-full pl-9 pr-4 rtl:pl-4 rtl:pr-9 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+          />
+        </div>
+      </div>
+
+      {/* MOBILE VIEW: Responsive Card List (visible on phones, hidden on desktop) */}
+      <div className="block md:hidden space-y-3">
+        {sortedAppointments.length === 0 ? (
+          <div className="text-center py-10 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
+            <Calendar className="w-10 h-10 mx-auto mb-2 text-zinc-600 opacity-50" />
+            <div>{t.admin.appointmentsTab.noData}</div>
+          </div>
+        ) : (
+          sortedAppointments.map((apt) => (
+            <div
+              key={apt.id}
+              className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 shadow-card"
+            >
+              {/* Header: Name + Preferred Date badge */}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-white text-sm flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-brand-red" />
+                    <span>{apt.name}</span>
+                  </div>
+                  <div className="text-xs text-brand-redLight font-semibold mt-0.5 flex items-center gap-1">
+                    <Car className="w-3 h-3" />
+                    <span>{apt.vehicle}</span>
+                  </div>
+                </div>
+
+                <div className="text-end shrink-0">
+                  <div className="px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 font-mono text-xs font-bold text-amber-300 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-amber-400" />
+                    <span>{apt.preferredDate}</span>
+                  </div>
+                  {apt.createdAt && (
+                    <div className="text-[10px] text-zinc-500 mt-0.5 flex items-center justify-end gap-1 font-mono">
+                      <Clock className="w-2.5 h-2.5" />
+                      <span>{new Date(apt.createdAt).toLocaleDateString("fr-FR")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Service & Message */}
+              <div className="pt-2 border-t border-zinc-800/80 text-xs text-zinc-300">
+                <div className="flex items-center gap-1.5 text-zinc-200 font-medium">
+                  <Wrench className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <span className="line-clamp-1">{apt.service}</span>
+                </div>
+                {apt.message && (
+                  <div className="text-[11px] text-zinc-400 italic bg-zinc-950/60 p-2 rounded-lg mt-1.5 line-clamp-2">
+                    “{apt.message}”
+                  </div>
+                )}
+              </div>
+
+              {/* Phone, Status & Actions */}
+              <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={`tel:${apt.phone}`}
+                    className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1 text-xs font-mono font-bold"
+                    title="Appeler"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-[11px]">{apt.phone}</span>
+                  </a>
+
+                  <a
+                    href={getWhatsAppUrl(
+                      apt.phone,
+                      isRtl
+                        ? `سلام عليكم ${apt.name}، بخصوص موعدكم في ورشة أوتو ليد لسيارة ${apt.vehicle}...`
+                        : `Bonjour ${apt.name}, concernant votre rendez-vous pour votre ${apt.vehicle} chez AutoLedBlida...`
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white"
+                    title="WhatsApp"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                  </a>
+                </div>
+
+                {/* Status select */}
+                <select
+                  value={apt.status || "nouveau"}
+                  onChange={(e) => updateAppointmentStatus(apt.id, e.target.value)}
+                  className={`text-xs font-bold px-2 py-1.5 rounded-lg border focus:outline-none ${
+                    apt.status === "confirme"
+                      ? "bg-emerald-950/70 border-emerald-500/50 text-emerald-400"
+                      : apt.status === "termine"
+                      ? "bg-zinc-800 border-zinc-600 text-zinc-300"
+                      : apt.status === "annule"
+                      ? "bg-rose-950/70 border-rose-500/50 text-rose-400"
+                      : "bg-sky-950/70 border-sky-500/50 text-sky-400"
+                  }`}
+                >
+                  <option value="nouveau">Nouveau</option>
+                  <option value="confirme">Confirmé</option>
+                  <option value="termine">Terminé</option>
+                  <option value="annule">Annulé</option>
+                </select>
+              </div>
+
+              {/* Bottom Edit & Delete buttons */}
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/60">
+                <button
+                  onClick={() => handleOpenEdit(apt)}
+                  className="flex-1 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>{t.admin.appointmentsTab.editBtn || (isRtl ? "تعديل" : "Modifier")}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(t.admin.appointmentsTab.deleteConfirm)) {
+                      deleteAppointment(apt.id);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-rose-950/30 hover:bg-rose-950 text-rose-400 border border-rose-800/40 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isRtl ? "حذف" : "Supprimer"}</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP VIEW: Table (visible on md+, scrollable with min-w-[720px]) */}
+      <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs sm:text-sm">
+          <table className="w-full text-start text-xs sm:text-sm min-w-[720px]">
             <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
               <tr>
                 <th className="p-3.5 px-4 text-start">{t.admin.appointmentsTab.colClient}</th>
@@ -107,14 +353,14 @@ export function AppointmentsTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
-              {filteredAppointments.length === 0 ? (
+              {sortedAppointments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-zinc-500">
                     {t.admin.appointmentsTab.noData}
                   </td>
                 </tr>
               ) : (
-                filteredAppointments.map((apt) => (
+                sortedAppointments.map((apt) => (
                   <tr key={apt.id} className="hover:bg-zinc-800/40 transition-colors">
                     <td className="p-3.5 px-4 font-bold text-white">
                       <div>{apt.name}</div>
@@ -134,7 +380,12 @@ export function AppointmentsTab() {
                       {apt.service}
                     </td>
                     <td className="p-3.5 px-4 font-mono text-zinc-300">
-                      {apt.preferredDate}
+                      <div className="font-bold text-amber-300">{apt.preferredDate}</div>
+                      {apt.createdAt && (
+                        <div className="text-[10px] text-zinc-500 font-mono">
+                          {new Date(apt.createdAt).toLocaleDateString("fr-FR")}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5 px-4">
                       <select
@@ -182,6 +433,14 @@ export function AppointmentsTab() {
                         </a>
 
                         <button
+                          onClick={() => handleOpenEdit(apt)}
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
+                          title="Modifier"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
                           onClick={() => {
                             if (window.confirm(t.admin.appointmentsTab.deleteConfirm)) {
                               deleteAppointment(apt.id);
@@ -201,6 +460,181 @@ export function AppointmentsTab() {
           </table>
         </div>
       </div>
+
+      {/* ADD / EDIT APPOINTMENT MODAL */}
+      {showAptModal && editingApt && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <h4 className="text-base font-bold text-white flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-red" />
+                <span>
+                  {editingApt.id
+                    ? t.admin.appointmentsTab.editTitle || (isRtl ? "تعديل الموعد" : "Modifier le Rendez-vous")
+                    : t.admin.appointmentsTab.addTitle || (isRtl ? "إضافة موعد جديد" : "Nouveau Rendez-vous")}
+                </span>
+              </h4>
+              <button
+                onClick={() => {
+                  setShowAptModal(false);
+                  setEditingApt(null);
+                }}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveAppointment} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Client Name */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "اسم الزبون *" : "Nom du client *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingApt.name}
+                    onChange={(e) => setEditingApt({ ...editingApt, name: e.target.value })}
+                    placeholder="Ex: Karim Bouzid"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "رقم الهاتف *" : "Téléphone *"}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingApt.phone}
+                    onChange={(e) => setEditingApt({ ...editingApt, phone: e.target.value })}
+                    placeholder="0550 12 34 56"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Vehicle */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "نوع السيارة والطراز *" : "Véhicule (modèle/année) *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingApt.vehicle}
+                    onChange={(e) => setEditingApt({ ...editingApt, vehicle: e.target.value })}
+                    placeholder="Ex: Golf 7, Clio 4, Tucson..."
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                {/* Preferred Date */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "اليوم المطلوب للحضور *" : "Date souhaitée *"}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingApt.preferredDate}
+                    onChange={(e) => setEditingApt({ ...editingApt, preferredDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Service */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "الخدمة المطلوبة *" : "Prestation demandée *"}
+                  </label>
+                  <select
+                    value={editingApt.service}
+                    onChange={(e) => setEditingApt({ ...editingApt, service: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                  >
+                    {serviceOptions.map((srv) => (
+                      <option key={srv} value={srv}>{srv}</option>
+                    ))}
+                    {editingApt.service && !serviceOptions.includes(editingApt.service) && (
+                      <option value={editingApt.service}>{editingApt.service}</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "حالة الموعد" : "Statut"}
+                  </label>
+                  <select
+                    value={editingApt.status || "nouveau"}
+                    onChange={(e) => setEditingApt({ ...editingApt, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-bold"
+                  >
+                    <option value="nouveau">Nouveau</option>
+                    <option value="confirme">Confirmé</option>
+                    <option value="termine">Terminé</option>
+                    <option value="annule">Annulé</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Message / Remarks */}
+              <div>
+                <label className="block text-zinc-300 font-bold mb-1">
+                  {isRtl ? "ملاحظات أو تفاصيل إضافية" : "Remarques ou message"}
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingApt.message}
+                  onChange={(e) => setEditingApt({ ...editingApt, message: e.target.value })}
+                  placeholder={isRtl ? "أي تفاصيل بخصوص نوع المصابيح أو العمل المطلوب..." : "Ex: Ampoules H7, optique fissuré, etc."}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red resize-none"
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAptModal(false);
+                    setEditingApt(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold"
+                >
+                  {isRtl ? "إلغاء" : "Annuler"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold shadow-glow-red disabled:opacity-50"
+                >
+                  {saving
+                    ? (isRtl ? "جاري الحفظ..." : "Enregistrement...")
+                    : (isRtl ? "حفظ الموعد" : "Enregistrer")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

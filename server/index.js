@@ -351,7 +351,54 @@ app.delete("/api/admin/categories/:id", (req, res) => {
   res.json({ success: true, categories: data.categories });
 });
 
-// 9. Admin: Appointment Status & Deletion
+// 9. Admin: Appointment CRUD (Create, Edit, Status & Deletion)
+app.post("/api/admin/appointments", (req, res) => {
+  const { name, phone, vehicle, service, preferredDate, message, status } = req.body;
+  if (!name || !phone || !vehicle) {
+    return res.status(400).json({ error: "Nom, téléphone et véhicule requis" });
+  }
+
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const newApt = {
+    id: "apt-" + Date.now(),
+    name: name.trim(),
+    phone: cleanAlgerianPhone(phone),
+    vehicle: vehicle.trim(),
+    service: service || "Installation LED / Phares",
+    preferredDate: preferredDate || new Date().toISOString().split("T")[0],
+    message: message || "",
+    status: status || "nouveau",
+    createdAt: new Date().toISOString()
+  };
+
+  data.appointments = [newApt, ...(data.appointments || [])];
+  writeData(data);
+  res.status(201).json({ success: true, appointment: newApt });
+});
+
+app.put("/api/admin/appointments/:id", (req, res) => {
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const idx = (data.appointments || []).findIndex((a) => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Rendez-vous non trouvé" });
+
+  const existing = data.appointments[idx];
+  data.appointments[idx] = {
+    ...existing,
+    ...req.body,
+    id: req.params.id,
+    phone: req.body.phone ? cleanAlgerianPhone(req.body.phone) : existing.phone,
+    name: req.body.name ? req.body.name.trim() : existing.name,
+    vehicle: req.body.vehicle ? req.body.vehicle.trim() : existing.vehicle
+  };
+
+  writeData(data);
+  res.json({ success: true, appointment: data.appointments[idx] });
+});
+
 app.put("/api/admin/appointments/:id/status", (req, res) => {
   const { status } = req.body;
   const data = readData();
@@ -374,7 +421,67 @@ app.delete("/api/admin/appointments/:id", (req, res) => {
   res.json({ success: true, message: "Rendez-vous supprimé" });
 });
 
-// 9b. Admin: Order Status & Deletion
+// 9b. Admin: Order CRUD (Create, Edit, Status & Deletion)
+app.post("/api/admin/orders", (req, res) => {
+  const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, total, vehicleNote, status } = req.body;
+  if (!customerName || !phone) {
+    return res.status(400).json({ error: "Nom et téléphone requis" });
+  }
+
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const qty = Math.max(1, Number(quantity) || 1);
+  const price = Number(productPrice) || 0;
+  const finalTotal = total !== undefined ? Number(total) : (price * qty);
+
+  const newOrder = {
+    id: "cmd-" + Date.now(),
+    customerName: customerName.trim(),
+    phone: cleanAlgerianPhone(phone),
+    wilaya: (wilaya || "").trim(),
+    commune: (commune || "").trim(),
+    productId: productId || "",
+    productName: productName || "Produit",
+    productPrice: price,
+    quantity: qty,
+    total: finalTotal,
+    vehicleNote: (vehicleNote || "").trim(),
+    status: status || "nouveau",
+    createdAt: new Date().toISOString()
+  };
+
+  data.orders = [newOrder, ...(data.orders || [])];
+  writeData(data);
+  res.status(201).json({ success: true, order: newOrder });
+});
+
+app.put("/api/admin/orders/:id", (req, res) => {
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const idx = (data.orders || []).findIndex((o) => o.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Commande non trouvée" });
+
+  const existing = data.orders[idx];
+  const qty = req.body.quantity !== undefined ? Math.max(1, Number(req.body.quantity) || 1) : existing.quantity;
+  const price = req.body.productPrice !== undefined ? Number(req.body.productPrice) || 0 : existing.productPrice;
+  const total = req.body.total !== undefined ? Number(req.body.total) : (price * qty);
+
+  data.orders[idx] = {
+    ...existing,
+    ...req.body,
+    id: req.params.id,
+    phone: req.body.phone ? cleanAlgerianPhone(req.body.phone) : existing.phone,
+    quantity: qty,
+    productPrice: price,
+    total
+  };
+
+  writeData(data);
+  res.json({ success: true, order: data.orders[idx] });
+});
+
 app.put("/api/admin/orders/:id/status", (req, res) => {
   const { status } = req.body;
   const data = readData();
