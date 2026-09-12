@@ -392,6 +392,6 @@ if (fs.existsSync(DIST_PATH)) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`AutoLedBlida Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`AutoLedBlida Server running on port ${PORT}`);
 });

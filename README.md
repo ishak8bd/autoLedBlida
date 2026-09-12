@@ -56,6 +56,22 @@ npm run dev
 
 ---
 
+## 🌐 Déploiement sur Render (render.com)
+
+Le projet est 100% prêt pour Render grâce au fichier `render.yaml` et aux scripts configurés.
+
+### Configuration sur Render Dashboard :
+1. Créez un **New Web Service** connecté à votre dépôt GitHub : `isaaxk/AUTO-LED-BLIDA`.
+2. Configurez les champs suivants :
+   - **Environment / Runtime** : `Node`
+   - **Build Command** : `npm install && npm run build`
+   - **Start Command** : `npm start`
+   - **Plan** : `Free`
+3. Cliquez sur **Deploy Web Service** !
+4. Render va automatiquement compiler le front-end avec Vite, lancer le serveur Express, et vous donner une URL HTTPS en direct (ex. `https://auto-led-blida.onrender.com`).
+
+---
+
 ## 📞 Coordonnées Authentiques Intégrées
 - **Service Client Principal** : `0561 14 70 39`
 - **Lignes directes** : `0549 80 43 96` / `0558 36 13 65` / `0541 96 04 74`
