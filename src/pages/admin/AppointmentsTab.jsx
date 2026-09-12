@@ -40,18 +40,36 @@ export function AppointmentsTab() {
     return matchesStatus && matchesQuery;
   });
 
+  const formatReservationDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const dmy = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const hm = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      return `${dmy} à ${hm}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Rank by preferredDate (Date souhaitée) ascending, tie-breaker by createdAt (Date de réservation) ascending
   const sortedAppointments = [...filteredAppointments].sort((a, b) => {
-    const dateA = a.preferredDate || "";
-    const dateB = b.preferredDate || "";
-    if (dateA !== dateB) {
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      return dateA.localeCompare(dateB);
+    const timeA = a.preferredDate ? new Date(a.preferredDate).getTime() : Infinity;
+    const timeB = b.preferredDate ? new Date(b.preferredDate).getTime() : Infinity;
+    const validTimes = !isNaN(timeA) && !isNaN(timeB);
+
+    if (validTimes && timeA !== timeB) {
+      return timeA - timeB;
+    } else if (!validTimes && a.preferredDate !== b.preferredDate) {
+      if (!a.preferredDate) return 1;
+      if (!b.preferredDate) return -1;
+      return String(a.preferredDate).localeCompare(String(b.preferredDate));
     }
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return timeA - timeB;
+
+    const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return createdA - createdB;
   });
 
   const exportCsv = () => {
@@ -241,9 +259,9 @@ export function AppointmentsTab() {
                     <span>{apt.preferredDate}</span>
                   </div>
                   {apt.createdAt && (
-                    <div className="text-[10px] text-zinc-500 mt-0.5 flex items-center justify-end gap-1 font-mono">
-                      <Clock className="w-2.5 h-2.5" />
-                      <span>{new Date(apt.createdAt).toLocaleDateString("fr-FR")}</span>
+                    <div className="text-[10px] text-zinc-400 mt-1 flex items-center justify-end gap-1 font-mono">
+                      <Clock className="w-2.5 h-2.5 text-zinc-500" />
+                      <span>{isRtl ? "حُجز: " : "Réservé: "}{formatReservationDate(apt.createdAt)}</span>
                     </div>
                   )}
                 </div>
@@ -382,8 +400,9 @@ export function AppointmentsTab() {
                     <td className="p-3.5 px-4 font-mono text-zinc-300">
                       <div className="font-bold text-amber-300">{apt.preferredDate}</div>
                       {apt.createdAt && (
-                        <div className="text-[10px] text-zinc-500 font-mono">
-                          {new Date(apt.createdAt).toLocaleDateString("fr-FR")}
+                        <div className="text-[10px] text-zinc-400 font-mono mt-0.5 flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5 text-zinc-500 shrink-0" />
+                          <span>{isRtl ? "حجز: " : "Réservé: "}{formatReservationDate(apt.createdAt)}</span>
                         </div>
                       )}
                     </td>

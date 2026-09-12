@@ -451,9 +451,13 @@ app.put("/api/admin/appointments/:id", (req, res) => {
     ...existing,
     ...req.body,
     id: req.params.id,
-    phone: req.body.phone ? cleanAlgerianPhone(req.body.phone) : existing.phone,
     name: req.body.name ? req.body.name.trim() : existing.name,
-    vehicle: req.body.vehicle ? req.body.vehicle.trim() : existing.vehicle
+    phone: req.body.phone ? cleanAlgerianPhone(req.body.phone) : existing.phone,
+    vehicle: req.body.vehicle ? req.body.vehicle.trim() : existing.vehicle,
+    service: req.body.service ? req.body.service.trim() : existing.service,
+    preferredDate: req.body.preferredDate || existing.preferredDate,
+    message: req.body.message !== undefined ? req.body.message.trim() : existing.message,
+    status: req.body.status || existing.status
   };
 
   writeData(data);
@@ -531,15 +535,24 @@ app.put("/api/admin/orders/:id", (req, res) => {
   const existing = data.orders[idx];
   const qty = req.body.quantity !== undefined ? Math.max(1, Number(req.body.quantity) || 1) : existing.quantity;
   const price = req.body.productPrice !== undefined ? Number(req.body.productPrice) || 0 : existing.productPrice;
-  const total = req.body.total !== undefined ? Number(req.body.total) : (price * qty);
+  const dFee = req.body.deliveryFee !== undefined ? Number(req.body.deliveryFee) || 0 : (existing.deliveryFee || 0);
+  const total = req.body.total !== undefined ? Number(req.body.total) : (price * qty + dFee);
 
   data.orders[idx] = {
     ...existing,
     ...req.body,
     id: req.params.id,
+    customerName: req.body.customerName ? req.body.customerName.trim() : existing.customerName,
     phone: req.body.phone ? cleanAlgerianPhone(req.body.phone) : existing.phone,
+    wilaya: req.body.wilaya !== undefined ? req.body.wilaya.trim() : existing.wilaya,
+    commune: req.body.commune !== undefined ? req.body.commune.trim() : existing.commune,
+    deliveryType: req.body.deliveryType || existing.deliveryType,
+    deliveryFee: dFee,
+    productName: req.body.productName ? req.body.productName.trim() : existing.productName,
     quantity: qty,
     productPrice: price,
+    vehicleNote: req.body.vehicleNote !== undefined ? req.body.vehicleNote.trim() : existing.vehicleNote,
+    status: req.body.status || existing.status,
     total
   };
 

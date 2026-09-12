@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Edit, Trash2, XCircle, Upload, Image as ImageIcon, Check, Star, Camera } from "lucide-react";
+import { Plus, Edit, Trash2, XCircle, Upload, Image as ImageIcon, Check, Star, Camera, Search } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 
@@ -22,6 +22,9 @@ export function ProductsTab() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [customUrlInput, setCustomUrlInput] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedCat, setSelectedCat] = useState("all");
+  const [viewMode, setViewMode] = useState("table"); // "table" or "cards"
 
   const products = data?.products || [];
   const categories = data?.categories || [];
@@ -124,9 +127,29 @@ export function ProductsTab() {
     });
   };
 
+  const getCategoryName = (catId) => {
+    const cat = categories.find((c) => c.id === catId);
+    if (!cat) return catId;
+    return isRtl ? cat.nameAr || cat.nameFr : cat.nameFr || cat.nameAr;
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const matchesCat = selectedCat === "all" || p.category === selectedCat;
+    const q = (productSearch || "").trim().toLowerCase();
+    const matchesQuery =
+      !q ||
+      (p.nameFr || "").toLowerCase().includes(q) ||
+      (p.nameAr || "").toLowerCase().includes(q) ||
+      (p.category || "").toLowerCase().includes(q) ||
+      (p.descriptionFr || "").toLowerCase().includes(q) ||
+      (p.descriptionAr || "").toLowerCase().includes(q);
+    return matchesCat && matchesQuery;
+  });
+
   return (
     <div className="space-y-6 text-start">
-      <div className="flex items-center justify-between">
+      {/* Top Header: Title & Add Button */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h3 className="text-xl font-bold text-white">{t.admin.productsTab.title}</h3>
           <p className="text-xs text-zinc-400">
@@ -151,159 +174,247 @@ export function ProductsTab() {
             });
             setShowProductModal(true);
           }}
-          className="px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white text-xs font-bold shadow-glow-red flex items-center gap-2"
+          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white text-xs font-bold shadow-glow-red flex items-center justify-center gap-2 transition-all shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>{t.admin.productsTab.addBtn}</span>
         </button>
       </div>
 
-      {/* MOBILE PRODUCTS VIEW: Responsive Card List (visible on phones, hidden on desktop) */}
-      <div className="block md:hidden space-y-3">
-        {products.length === 0 ? (
-          <div className="text-center py-10 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
-            Aucun produit dans le catalogue.
+      {/* Toolbar: Search, Category Filter & View Mode Toggle */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-2">
+          {/* Search bar */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
+            <input
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder={t.admin.productsTab.search || "Rechercher un produit..."}
+              className="w-full pl-9 pr-4 rtl:pl-4 rtl:pr-9 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+            />
           </div>
-        ) : (
-          products.map((p) => {
-            const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
-            return (
-              <div
-                key={p.id}
-                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 shadow-card"
-              >
-                {/* Card Top: Image + Names + Price */}
-                <div className="flex items-start gap-3">
-                  <div className="relative shrink-0">
-                    <img
-                      src={p.image || "/biled-lens.jpg"}
-                      alt={p.nameFr}
-                      className="w-16 h-16 rounded-xl object-cover bg-zinc-950 border border-zinc-700"
-                    />
-                    {imgCount > 1 && (
-                      <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
-                        <Camera className="w-2.5 h-2.5" />
-                        {imgCount}
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white text-sm line-clamp-1">{p.nameFr}</div>
-                    <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
-                    <div className="mt-1 font-mono font-black text-brand-redLight text-sm">
-                      {p.price?.toLocaleString()} DZD
-                    </div>
-                  </div>
-                </div>
+          {/* Category dropdown */}
+          <select
+            value={selectedCat}
+            onChange={(e) => setSelectedCat(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-zinc-200 focus:outline-none focus:border-brand-red shrink-0 max-w-[150px] sm:max-w-none"
+          >
+            <option value="all">{t.admin.productsTab.allCategories || "Toutes catégories"}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {isRtl ? c.nameAr : c.nameFr}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                {/* Badges: Category, Stock, Custom Badge */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-800/80">
-                  <span className="px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium">
-                    {p.category}
-                  </span>
-
-                  <span
-                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
-                      p.inStock
-                        ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
-                        : "bg-rose-950 text-rose-400 border border-rose-500/40"
-                    }`}
-                  >
-                    {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
-                  </span>
-
-                  {p.badgeFr && (
-                    <span className="px-2 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
-                      {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
-                    </span>
-                  )}
-                </div>
-
-                {/* Action Buttons: Modifier & Supprimer */}
-                <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/60">
-                  <button
-                    onClick={() => {
-                      setEditingProduct({
-                        ...p,
-                        images: Array.isArray(p.images) && p.images.length > 0
-                          ? [...p.images]
-                          : (p.image ? [p.image] : [])
-                      });
-                      setShowProductModal(true);
-                    }}
-                    className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    <span>{isRtl ? "تعديل" : "Modifier"}</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Supprimer ce produit ?")) {
-                        deleteProduct(p.id);
-                      }
-                    }}
-                    className="py-2 px-3 rounded-xl bg-rose-950/30 hover:bg-rose-950 text-rose-400 border border-rose-800/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isRtl ? "حذف" : "Supprimer"}</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800 self-end sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode("table")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "table"
+                ? "bg-brand-red text-white shadow-sm"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            {t.admin.productsTab.viewTable || "Tableau"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("cards")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === "cards"
+                ? "bg-brand-red text-white shadow-sm"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            {t.admin.productsTab.viewCards || "Cartes"}
+          </button>
+        </div>
       </div>
 
-      {/* DESKTOP VIEW: Products Table (visible on md+, scrollable with min-w-[720px]) */}
-      <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs sm:text-sm min-w-[720px]">
-            <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
-              <tr>
-                <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colProduct}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colCategory}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colPrice}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colStock}</th>
-                <th className="p-3.5 px-4 text-end">{t.admin.productsTab.colActions}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60">
-              {products.map((p) => {
-                const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
-                return (
-                  <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
-                    <td className="p-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative shrink-0">
-                          <img
-                            src={p.image || "/biled-lens.jpg"}
-                            alt={p.nameFr}
-                            className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700"
-                          />
-                          {imgCount > 1 && (
-                            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
-                              <Camera className="w-2.5 h-2.5" />
-                              {imgCount}
+      {/* PRODUCTS DISPLAY: Responsive Table or Responsive Cards */}
+      {viewMode === "table" ? (
+        <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
+          {/* Mobile swipe hint */}
+          <div className="block sm:hidden text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
+            {t.admin.productsTab.scrollHint || "Glissez horizontalement pour voir tout le tableau ↔"}
+          </div>
+
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-start text-xs sm:text-sm min-w-[620px]">
+              <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
+                <tr>
+                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colProduct}</th>
+                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colCategory}</th>
+                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colPrice}</th>
+                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colStock}</th>
+                  <th className="p-3.5 px-4 text-end">{t.admin.productsTab.colActions}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-zinc-500">
+                      {t.admin.productsTab.noData || "Aucun produit trouvé."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((p) => {
+                    const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
+                    return (
+                      <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
+                        <td className="p-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative shrink-0">
+                              <img
+                                src={p.image || "/biled-lens.jpg"}
+                                alt={p.nameFr}
+                                className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700"
+                              />
+                              {imgCount > 1 && (
+                                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
+                                  <Camera className="w-2.5 h-2.5" />
+                                  {imgCount}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 max-w-xs">
+                              <div className="font-bold text-white line-clamp-1">{p.nameFr}</div>
+                              <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                              {p.badgeFr && (
+                                <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-950/60 border border-amber-500/40 text-amber-300">
+                                  {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 px-4">
+                          <span className="px-2.5 py-1 rounded-lg bg-zinc-800/90 border border-zinc-700/60 text-zinc-300 text-xs font-medium whitespace-nowrap">
+                            {getCategoryName(p.category)}
+                          </span>
+                        </td>
+                        <td className="p-3 px-4">
+                          <div className="font-mono font-black text-white whitespace-nowrap">
+                            {p.price?.toLocaleString()} DZD
+                          </div>
+                          {p.oldPrice && (
+                            <div className="text-[11px] text-zinc-500 line-through font-mono">
+                              {p.oldPrice?.toLocaleString()} DZD
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 px-4 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
+                              p.inStock
+                                ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
+                                : "bg-rose-950 text-rose-400 border border-rose-500/40"
+                            }`}
+                          >
+                            {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
+                          </span>
+                        </td>
+                        <td className="p-3 px-4 text-end">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingProduct({
+                                  ...p,
+                                  images: Array.isArray(p.images) && p.images.length > 0
+                                    ? [...p.images]
+                                    : (p.image ? [p.image] : [])
+                                });
+                                setShowProductModal(true);
+                              }}
+                              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                              title={isRtl ? "تعديل" : "Modifier"}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(t.admin.productsTab.deleteConfirm || "Supprimer ce produit ?")) {
+                                  deleteProduct(p.id);
+                                }
+                              }}
+                              className="p-2 rounded-xl bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 transition-colors"
+                              title={isRtl ? "حذف" : "Supprimer"}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* Cards View */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-10 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
+              {t.admin.productsTab.noData || "Aucun produit trouvé."}
+            </div>
+          ) : (
+            filteredProducts.map((p) => {
+              const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
+              return (
+                <div
+                  key={p.id}
+                  className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 shadow-card hover:border-zinc-700 transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    {/* Top: Image + Names + Price */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative shrink-0">
+                        <img
+                          src={p.image || "/biled-lens.jpg"}
+                          alt={p.nameFr}
+                          className="w-16 h-16 rounded-xl object-cover bg-zinc-950 border border-zinc-700"
+                        />
+                        {imgCount > 1 && (
+                          <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
+                            <Camera className="w-2.5 h-2.5" />
+                            {imgCount}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm line-clamp-1">{p.nameFr}</div>
+                        <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="font-mono font-black text-brand-redLight text-sm">
+                            {p.price?.toLocaleString()} DZD
+                          </span>
+                          {p.oldPrice && (
+                            <span className="text-[11px] text-zinc-500 line-through font-mono">
+                              {p.oldPrice?.toLocaleString()} DZD
                             </span>
                           )}
                         </div>
-                        <div>
-                          <div className="font-bold text-white line-clamp-1">{p.nameFr}</div>
-                          <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
-                        </div>
                       </div>
-                    </td>
-                    <td className="p-3.5 px-4 font-medium text-zinc-300">
-                      {p.category}
-                    </td>
-                    <td className="p-3.5 px-4 font-mono font-black text-white">
-                      {p.price?.toLocaleString()} DZD
-                    </td>
-                    <td className="p-3.5 px-4">
+                    </div>
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-800/80">
+                      <span className="px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium">
+                        {getCategoryName(p.category)}
+                      </span>
+
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
                           p.inStock
                             ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
                             : "bg-rose-950 text-rose-400 border border-rose-500/40"
@@ -311,49 +422,56 @@ export function ProductsTab() {
                       >
                         {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
                       </span>
-                    </td>
-                    <td className="p-3.5 px-4 text-end">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingProduct({
-                              ...p,
-                              images: Array.isArray(p.images) && p.images.length > 0
-                                ? [...p.images]
-                                : (p.image ? [p.image] : [])
-                            });
-                            setShowProductModal(true);
-                          }}
-                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
-                          title="Modifier"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm("Supprimer ce produit ?")) {
-                              deleteProduct(p.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+
+                      {p.badgeFr && (
+                        <span className="px-2 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
+                          {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/60 mt-2">
+                    <button
+                      onClick={() => {
+                        setEditingProduct({
+                          ...p,
+                          images: Array.isArray(p.images) && p.images.length > 0
+                            ? [...p.images]
+                            : (p.image ? [p.image] : [])
+                        });
+                        setShowProductModal(true);
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>{isRtl ? "تعديل" : "Modifier"}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (window.confirm(t.admin.productsTab.deleteConfirm || "Supprimer ce produit ?")) {
+                          deleteProduct(p.id);
+                        }
+                      }}
+                      className="py-2 px-3 rounded-xl bg-rose-950/30 hover:bg-rose-950 text-rose-400 border border-rose-800/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isRtl ? "حذف" : "Supprimer"}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
-      </div>
+      )}
 
       {/* Product Add/Edit Modal with File Upload & Gallery & URL Input */}
       {showProductModal && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-xl rounded-3xl bg-brand-surface border border-zinc-700 p-6 sm:p-8 space-y-5 text-start my-8 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-xl rounded-3xl bg-brand-surface border border-zinc-700 p-4 sm:p-6 sm:p-8 space-y-5 text-start my-4 sm:my-8 max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
               <h4 className="text-xl font-bold text-white">
                 {editingProduct.id ? t.admin.productsTab.editTitle : t.admin.productsTab.addTitle}
