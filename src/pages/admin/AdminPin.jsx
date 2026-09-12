@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
@@ -24,8 +24,12 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md p-8 rounded-3xl glass-panel border border-zinc-700 shadow-2xl text-center space-y-6">
-        <div className="w-16 h-16 rounded-full bg-brand-red/20 border border-brand-red/50 text-brand-redLight mx-auto flex items-center justify-center shadow-glow-red">
-          <Lock className="w-8 h-8" />
+        <div className="relative mx-auto w-20 h-20">
+          <div className="absolute -inset-1.5 rounded-full bg-brand-red/40 blur-md animate-logo-radar pointer-events-none" />
+          <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black p-1 animate-logo-periodic">
+            <img src="/logo.png" alt="AutoLedBlida Logo" className="w-full h-full object-cover rounded-full" />
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-logo-shine pointer-events-none rounded-full" />
+          </div>
         </div>
 
         <div className="space-y-1">

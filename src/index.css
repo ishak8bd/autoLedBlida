@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -97,4 +97,78 @@ input[type="range"]::-moz-range-thumb {
   cursor: ew-resize;
   box-shadow: 0 0 15px rgba(230, 0, 38, 0.8);
   border: 2px solid white;
+}
+
+/* Periodic Logo Motion Animation ("Sometimes with motion") */
+@keyframes logoPeriodicMotion {
+  0%, 68% {
+    transform: scale(1) rotate(0deg) translateY(0);
+    filter: drop-shadow(0 0 12px rgba(230, 0, 38, 0.45));
+  }
+  72% {
+    transform: scale(1.08) rotate(3deg) translateY(-4px);
+    filter: drop-shadow(0 0 28px rgba(255, 42, 75, 0.95));
+  }
+  76% {
+    transform: scale(1.05) rotate(-2.5deg) translateY(-2px);
+    filter: drop-shadow(0 0 22px rgba(255, 42, 75, 0.85));
+  }
+  80% {
+    transform: scale(1.02) rotate(1deg) translateY(-1px);
+    filter: drop-shadow(0 0 16px rgba(230, 0, 38, 0.65));
+  }
+  84%, 100% {
+    transform: scale(1) rotate(0deg) translateY(0);
+    filter: drop-shadow(0 0 12px rgba(230, 0, 38, 0.45));
+  }
+}
+
+/* Shimmer Light Sweep passing across the logo periodically */
+@keyframes logoShineSweep {
+  0%, 68% {
+    transform: translateX(-150%) skewX(-25deg);
+    opacity: 0;
+  }
+  71% {
+    opacity: 0.9;
+  }
+  77% {
+    transform: translateX(200%) skewX(-25deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(200%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+/* Expanding Radar Aura Ring */
+@keyframes logoRadarPulse {
+  0%, 68% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  71% {
+    opacity: 0.8;
+  }
+  82% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.animate-logo-periodic {
+  animation: logoPeriodicMotion 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-logo-shine {
+  animation: logoShineSweep 7s ease-in-out infinite;
+}
+
+.animate-logo-radar {
+  animation: logoRadarPulse 7s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

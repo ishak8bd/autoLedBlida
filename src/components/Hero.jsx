@@ -43,16 +43,37 @@ export function Hero({ onOpenBooking }) {
           {/* Left / Text Content Column */}
           <div className="lg:col-span-7 flex flex-col items-start text-start space-y-6">
             
-            {/* Top Brand Badges */}
-            <div className="inline-flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-red/15 border border-brand-red/40 text-brand-redLight text-xs font-bold tracking-wide uppercase shadow-glow-red">
-                <Flame className="w-3.5 h-3.5" />
-                {t.hero.badge}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-semibold">
-                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                {isRtl ? "توصيل 69 ولاية" : "Livraison 69 Wilayas"}
-              </span>
+            {/* Top Brand Badges & Featured Crest */}
+            <div className="flex items-center gap-4 group">
+              {/* Featured Large Brand Crest with Periodic Motion */}
+              <div className="relative flex-shrink-0">
+                <div className="absolute -inset-1.5 rounded-2xl bg-brand-red/40 blur-md animate-logo-radar pointer-events-none" />
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-brand-red shadow-glow-red bg-black/90 p-1 animate-logo-periodic group-hover:scale-105 transition-all duration-300">
+                  <img
+                    src="/logo.png"
+                    alt="AutoLedBlida Red Eagle Emblem"
+                    className="w-full h-full object-contain rounded-xl"
+                  />
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-logo-shine pointer-events-none rounded-xl" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="inline-flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-red/15 border border-brand-red/40 text-brand-redLight text-xs font-bold tracking-wide uppercase shadow-glow-red">
+                    <Flame className="w-3.5 h-3.5" />
+                    {t.hero.badge}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-semibold">
+                    <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                    {isRtl ? "توصيل 69 ولاية" : "Livraison 69 Wilayas"}
+                  </span>
+                </div>
+                <div className="text-xs font-semibold text-zinc-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
+                  <span>{isRtl ? "الورشة الاحترافية الأولى لتعديل الإنارة بالبليدة" : "Atelier Spécialisé Rénovation & Éclairage LED"}</span>
+                </div>
+              </div>
             </div>
 
             {/* Main Headline */}

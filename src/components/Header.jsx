@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
 import {
@@ -40,14 +40,23 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Brand Logo & Name */}
-          <a href="#accueil" className="flex items-center gap-3.5 group">
-            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red group-hover:scale-105 transition-transform duration-300 bg-black">
-              <img
-                src="/logo.png"
-                alt="AutoLedBlida Red Eagle Logo"
-                className="w-full h-full object-cover"
-              />
+          <a href="#accueil" className="flex items-center gap-3.5 group py-1">
+            <div className="relative">
+              {/* Periodic Radar Pulse Ring */}
+              <div className="absolute -inset-1 rounded-full bg-brand-red/50 blur-sm animate-logo-radar pointer-events-none" />
+              
+              {/* Bigger Logo with Periodic Motion & Shine */}
+              <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black p-0.5 animate-logo-periodic group-hover:scale-110 transition-transform duration-300">
+                <img
+                  src="/logo.png"
+                  alt="AutoLedBlida Red Eagle Logo"
+                  className="w-full h-full object-cover rounded-full"
+                />
+                {/* Diagonal Shimmer Light Sweep */}
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-logo-shine pointer-events-none rounded-full" />
+              </div>
             </div>
+
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-white group-hover:text-brand-redLight transition-colors">

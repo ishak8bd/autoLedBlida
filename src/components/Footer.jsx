@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
 import {
@@ -37,9 +37,13 @@ export function Footer({ onOpenAdmin }) {
           
           {/* Column 1: Brand & Bio */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black">
-                <img src="/logo.png" alt="Logo AutoLedBlida" className="w-full h-full object-cover" />
+            <div className="flex items-center gap-3.5 group">
+              <div className="relative flex-shrink-0">
+                <div className="absolute -inset-1 rounded-full bg-brand-red/40 blur-sm animate-logo-radar pointer-events-none" />
+                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black p-0.5 animate-logo-periodic group-hover:scale-105 transition-transform duration-300">
+                  <img src="/logo.png" alt="Logo AutoLedBlida" className="w-full h-full object-cover rounded-full" />
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-logo-shine pointer-events-none rounded-full" />
+                </div>
               </div>
               <div>
                 <span className="font-extrabold text-xl text-white">
