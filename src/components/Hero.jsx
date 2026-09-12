@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
 import {
@@ -137,18 +137,98 @@ export function Hero({ onOpenBooking }) {
                   }`}
                 />
 
-                {/* Simulated Xenon/Bi-LED Light Beams when lightsOn is TRUE */}
-                {lightsOn && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* Angel Eye rings highlight */}
-                    <div className="absolute top-[48%] left-[24%] w-16 h-16 rounded-full bg-cyan-300/40 blur-md animate-pulse" />
-                    <div className="absolute top-[46%] left-[34%] w-14 h-14 rounded-full bg-cyan-300/40 blur-md animate-pulse" />
-                    
-                    <div className="absolute top-[46%] right-[34%] w-14 h-14 rounded-full bg-cyan-300/40 blur-md animate-pulse" />
-                    <div className="absolute top-[48%] right-[24%] w-16 h-16 rounded-full bg-cyan-300/40 blur-md animate-pulse" />
+                {/* Realistic Headlight Simulation */}
+                {lightsOn ? (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                    {/* Wet ground Bi-LED road projection */}
+                    <div
+                      className="absolute bottom-0 left-[8%] right-0 h-[42%] mix-blend-screen opacity-90 transition-opacity duration-700"
+                      style={{
+                        background: "radial-gradient(ellipse 85% 55% at 65% 90%, rgba(56, 189, 248, 0.45) 0%, rgba(6, 182, 212, 0.22) 45%, transparent 75%)"
+                      }}
+                    />
 
-                    {/* Laser light projection onto the road */}
-                    <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-cyan-400/20 via-sky-300/10 to-transparent blur-lg" />
+                    {/* Left Headlight Forward Light Cone */}
+                    <div
+                      className="absolute inset-0 mix-blend-screen opacity-65"
+                      style={{
+                        background: "radial-gradient(circle at 49.3% 57.8%, rgba(224, 242, 254, 0.7) 0%, rgba(56, 189, 248, 0.28) 28%, transparent 60%)",
+                        clipPath: "polygon(49.3% 57.8%, 12% 100%, 72% 100%)"
+                      }}
+                    />
+
+                    {/* Right Headlight Forward Light Cone */}
+                    <div
+                      className="absolute inset-0 mix-blend-screen opacity-75"
+                      style={{
+                        background: "radial-gradient(circle at 79% 56.3%, rgba(224, 242, 254, 0.8) 0%, rgba(56, 189, 248, 0.32) 28%, transparent 60%)",
+                        clipPath: "polygon(79% 56.3%, 45% 100%, 100% 100%)"
+                      }}
+                    />
+
+                    {/* ===== Passenger Headlight (Viewer's Left: 49.3% X, 57.8% Y) ===== */}
+                    {/* Ambient Housing Glow */}
+                    <div
+                      className="absolute w-24 h-16 rounded-full bg-cyan-400/40 blur-xl -translate-x-1/2 -translate-y-1/2 mix-blend-screen animate-pulse"
+                      style={{ left: "49.3%", top: "57.8%" }}
+                    />
+                    {/* Anamorphic Lens Flare */}
+                    <div
+                      className="absolute w-44 h-1.5 rounded-full bg-gradient-to-r from-transparent via-cyan-100 to-transparent blur-[1px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen shadow-[0_0_12px_#38bdf8]"
+                      style={{ left: "49.3%", top: "57.8%" }}
+                    />
+                    {/* Outer Angel Eye Ring */}
+                    <div
+                      className="absolute w-6 h-6 rounded-full bg-cyan-300/80 blur-[3px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen"
+                      style={{ left: "47.1%", top: "57.1%" }}
+                    >
+                      <div className="absolute inset-1 rounded-full bg-white blur-[0.5px]" />
+                    </div>
+                    {/* Inner Bi-LED Projector Lens & Core Hotspot */}
+                    <div
+                      className="absolute w-8 h-8 rounded-full bg-cyan-300/90 blur-[4px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen shadow-[0_0_24px_#38bdf8]"
+                      style={{ left: "51.5%", top: "58.4%" }}
+                    >
+                      <div className="absolute inset-2 rounded-full bg-white shadow-[0_0_10px_#fff]" />
+                    </div>
+
+                    {/* ===== Driver Headlight (Viewer's Right: 79.0% X, 56.3% Y) ===== */}
+                    {/* Ambient Housing Glow */}
+                    <div
+                      className="absolute w-28 h-16 rounded-full bg-cyan-400/45 blur-xl -translate-x-1/2 -translate-y-1/2 mix-blend-screen animate-pulse"
+                      style={{ left: "79.0%", top: "56.3%" }}
+                    />
+                    {/* Anamorphic Lens Flare */}
+                    <div
+                      className="absolute w-52 h-1.5 rounded-full bg-gradient-to-r from-transparent via-cyan-100 to-transparent blur-[1px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen shadow-[0_0_14px_#38bdf8]"
+                      style={{ left: "79.0%", top: "56.3%" }}
+                    />
+                    {/* Inner Bi-LED Projector Lens & Core Hotspot */}
+                    <div
+                      className="absolute w-9 h-9 rounded-full bg-cyan-300/95 blur-[4px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen shadow-[0_0_28px_#38bdf8]"
+                      style={{ left: "77.9%", top: "56.6%" }}
+                    >
+                      <div className="absolute inset-2 rounded-full bg-white shadow-[0_0_12px_#fff]" />
+                    </div>
+                    {/* Outer Angel Eye Ring */}
+                    <div
+                      className="absolute w-6 h-6 rounded-full bg-cyan-300/80 blur-[3px] -translate-x-1/2 -translate-y-1/2 mix-blend-screen"
+                      style={{ left: "80.0%", top: "55.9%" }}
+                    >
+                      <div className="absolute inset-1 rounded-full bg-white blur-[0.5px]" />
+                    </div>
+                  </div>
+                ) : (
+                  /* Realistic Dimmed Headlights Mask when switched OFF */
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none transition-opacity duration-700">
+                    <div
+                      className="absolute w-[13%] h-[11%] rounded-full bg-black/75 blur-md -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: "49.3%", top: "57.8%" }}
+                    />
+                    <div
+                      className="absolute w-[11%] h-[9%] rounded-full bg-black/75 blur-md -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: "79.0%", top: "56.3%" }}
+                    />
                   </div>
                 )}
 
