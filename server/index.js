@@ -109,11 +109,34 @@ app.post("/api/orders", (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database unavailable" });
 
-  const qty = Math.max(1, Number(quantity) || 1);
-  const price = Number(productPrice) || 0;
-  const subtotal = price * qty;
+  const rawItems = Array.isArray(req.body.items) && req.body.items.length > 0 ? req.body.items : null;
+  const items = rawItems
+    ? rawItems.map((item) => ({
+        productId: item.productId || item.id || "",
+        productName: item.productName || item.nameFr || "Produit AutoLedBlida",
+        productPrice: Number(item.productPrice || item.price) || 0,
+        productImage: item.productImage || item.image || "",
+        quantity: Math.max(1, Number(item.quantity) || 1)
+      }))
+    : [
+        {
+          productId: productId || "",
+          productName: productName || "Produit AutoLedBlida",
+          productPrice: Number(productPrice) || 0,
+          productImage: productImage || "",
+          quantity: Math.max(1, Number(quantity) || 1)
+        }
+      ];
+
+  const totalQty = items.reduce((s, it) => s + it.quantity, 0);
+  const calculatedSubtotal = items.reduce((s, it) => s + it.productPrice * it.quantity, 0);
+  const subtotal = req.body.subtotal !== undefined ? Number(req.body.subtotal) : calculatedSubtotal;
   const dFee = Number(deliveryFee) || 0;
   const total = req.body.total !== undefined ? Number(req.body.total) : (subtotal + dFee);
+
+  const displayProductName = items.length === 1
+    ? items[0].productName
+    : `${items.length} articles (${items.map((i) => `${i.productName} x${i.quantity}`).join(", ")})`;
 
   const newOrder = {
     id: "cmd-" + Date.now(),
@@ -123,12 +146,13 @@ app.post("/api/orders", (req, res) => {
     commune: (commune || "").trim(),
     deliveryType: deliveryType || "home",
     deliveryFee: dFee,
-    quantity: qty,
+    quantity: totalQty,
     vehicleNote: (vehicleNote || "").trim(),
-    productId: productId || "",
-    productName: productName || "Produit AutoLedBlida",
-    productImage: productImage || "",
-    productPrice: price,
+    items,
+    productId: items[0]?.productId || productId || "",
+    productName: displayProductName,
+    productImage: items[0]?.productImage || productImage || "",
+    productPrice: items[0]?.productPrice || Number(productPrice) || 0,
     subtotal,
     total,
     status: "nouveau",
@@ -460,7 +484,7 @@ app.delete("/api/admin/appointments/:id", (req, res) => {
 
 // 9b. Admin: Order CRUD (Create, Edit, Status & Deletion)
 app.post("/api/admin/orders", (req, res) => {
-  const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, deliveryType, deliveryFee, total, vehicleNote, status } = req.body;
+  const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, deliveryType, deliveryFee, total, vehicleNote, status, items } = req.body;
   if (!customerName || !phone) {
     return res.status(400).json({ error: "Nom et téléphone requis" });
   }
@@ -481,6 +505,7 @@ app.post("/api/admin/orders", (req, res) => {
     commune: (commune || "").trim(),
     deliveryType: deliveryType || "home",
     deliveryFee: dFee,
+    items: Array.isArray(items) ? items : undefined,
     productId: productId || "",
     productName: productName || "Produit",
     productPrice: price,

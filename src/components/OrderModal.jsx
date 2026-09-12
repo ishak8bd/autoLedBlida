@@ -24,10 +24,10 @@ import {
   AlertCircle,
   Plus,
   Minus,
-  ShieldCheck,
   Home,
   Building2,
-  ShoppingCart
+  Trash2,
+  Package
 } from "lucide-react";
 
 export function OrderModal({ isOpen, onClose, product = null }) {
@@ -37,9 +37,9 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   const settings = data?.settings || {};
   const primaryPhone = getPrimaryPhone(settings);
 
-  const [quantity, setQuantity] = useState(1);
+  // Multi-product order items state: Array of { id, nameFr, nameAr, price, image, quantity }
+  const [orderItems, setOrderItems] = useState([]);
   const [deliveryType, setDeliveryType] = useState("home"); // "home" | "desk"
-  const [addedToCart, setAddedToCart] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -53,101 +53,181 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   const [successOrder, setSuccessOrder] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Helper to persist draft
+  const saveDraft = (itemsToSave, formToSave, delTypeToSave) => {
+    try {
+      const draft = {
+        items: itemsToSave,
+        formData: formToSave,
+        deliveryType: delTypeToSave,
+        updatedAt: Date.now()
+      };
+      localStorage.setItem("autoled_order_draft", JSON.stringify(draft));
+      window.dispatchEvent(new Event("orderDraftUpdated"));
+    } catch (e) {
+      console.warn("Failed to save order draft:", e);
+    }
+  };
+
+  // Load / initialize order when modal opens or product changes
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setErrorMsg("");
+    setPhoneTouched(false);
+    setSuccessOrder(null);
+
+    let savedDraft = null;
+    try {
+      const raw = localStorage.getItem("autoled_order_draft");
+      if (raw) savedDraft = JSON.parse(raw);
+    } catch (e) {
+      console.warn("Could not read order draft", e);
+    }
+
+    let initialForm = {
+      customerName: "",
+      phone: "",
+      wilaya: "",
+      commune: "",
+      vehicleNote: ""
+    };
+    let initialDeliveryType = "home";
+    let initialItems = [];
+
+    if (savedDraft) {
+      if (savedDraft.formData) {
+        initialForm = {
+          customerName: savedDraft.formData.customerName || "",
+          phone: savedDraft.formData.phone || "",
+          wilaya: savedDraft.formData.wilaya || "",
+          commune: savedDraft.formData.commune || "",
+          vehicleNote: savedDraft.formData.vehicleNote || ""
+        };
+      }
+      if (savedDraft.deliveryType) {
+        initialDeliveryType = savedDraft.deliveryType;
+      }
+      if (Array.isArray(savedDraft.items) && savedDraft.items.length > 0) {
+        initialItems = [...savedDraft.items];
+      }
+    }
+
+    // If opened with a specific product
+    if (product) {
+      const existingIdx = initialItems.findIndex((it) => it.id === product.id);
+      if (existingIdx > -1) {
+        // Product already in order; ensure at least quantity 1
+        if (!initialItems[existingIdx].quantity || initialItems[existingIdx].quantity < 1) {
+          initialItems[existingIdx].quantity = 1;
+        }
+      } else {
+        // Append new product to the order items
+        initialItems.push({
+          id: product.id,
+          nameFr: product.nameFr,
+          nameAr: product.nameAr || product.nameFr,
+          price: Number(product.price) || 0,
+          image: product.image || "/biled-lens.jpg",
+          quantity: 1
+        });
+      }
+    }
+
+    setFormData(initialForm);
+    setDeliveryType(initialDeliveryType);
+    setOrderItems(initialItems);
+
+    // Save synchronized draft
+    saveDraft(initialItems, initialForm, initialDeliveryType);
+  }, [isOpen, product]);
+
+  if (!isOpen) return null;
+  if (orderItems.length === 0 && !product && !successOrder) return null;
+
+  // Calculation values
   const availableCommunes = getCommunesByWilaya(formData.wilaya);
   const wilayaFee = getWilayaDeliveryFee ? getWilayaDeliveryFee(formData.wilaya) : { home: 600, desk: 350, active: true };
   const isWilayaActive = wilayaFee?.active !== false;
   const isPhoneValid = isValidAlgerianPhone(formData.phone);
   const isPhoneInvalid = phoneTouched && formData.phone.length > 0 && !isPhoneValid;
 
-  useEffect(() => {
-    if (isOpen) {
-      setQuantity(1);
-      setDeliveryType("home");
-      setAddedToCart(false);
-      setSuccessOrder(null);
-      setErrorMsg("");
-      setPhoneTouched(false);
-    }
-  }, [isOpen, product]);
+  const totalItemsCount = orderItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const subtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) || 0) * (item.quantity || 1), 0);
 
-  if (!isOpen || !product) return null;
-
-  const unitPrice = Number(product.price) || 0;
-  const subtotal = unitPrice * quantity;
+  // Delivery fee is applied EXACTLY ONCE for the entire package/order
   const currentDeliveryFee = formData.wilaya && isWilayaActive
     ? (deliveryType === "desk" ? Number(wilayaFee?.desk || 0) : Number(wilayaFee?.home || 0))
     : 0;
   const finalTotal = subtotal + currentDeliveryFee;
-  const productTitle = isRtl ? product.nameAr || product.nameFr : product.nameFr;
 
-  const handleWilayaChange = (e) => {
-    const val = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      wilaya: val,
-      commune: "" // Reset commune when wilaya changes
-    }));
+  // Handle Form changes
+  const handleFormChange = (key, val) => {
+    const updatedForm = { ...formData, [key]: val };
+    if (key === "wilaya") {
+      updatedForm.commune = ""; // Reset commune when wilaya changes
+    }
+    setFormData(updatedForm);
+    saveDraft(orderItems, updatedForm, deliveryType);
   };
 
-  const handleAddToCart = (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    try {
-      const existingCart = JSON.parse(localStorage.getItem("autoled_cart") || "[]");
-      const existingIndex = existingCart.findIndex(
-        (item) => item.productId === product.id && item.deliveryType === deliveryType
-      );
+  const handleDeliveryTypeChange = (type) => {
+    setDeliveryType(type);
+    saveDraft(orderItems, formData, type);
+  };
 
-      const itemToAdd = {
-        id: product.id + "-" + Date.now(),
-        productId: product.id,
-        nameFr: product.nameFr,
-        nameAr: product.nameAr,
-        price: unitPrice,
-        image: product.image || "/biled-lens.jpg",
-        quantity: quantity,
-        wilaya: formData.wilaya,
-        commune: formData.commune,
-        deliveryType: deliveryType,
-        deliveryFee: currentDeliveryFee,
-        vehicleNote: formData.vehicleNote,
-        addedAt: Date.now()
-      };
+  // Quantity stepper
+  const handleUpdateQuantity = (itemId, newQty) => {
+    if (newQty < 1) return;
+    const updated = orderItems.map((item) =>
+      item.id === itemId ? { ...item, quantity: newQty } : item
+    );
+    setOrderItems(updated);
+    saveDraft(updated, formData, deliveryType);
+  };
 
-      if (existingIndex > -1) {
-        existingCart[existingIndex].quantity += quantity;
-        if (formData.wilaya) existingCart[existingIndex].wilaya = formData.wilaya;
-        if (formData.commune) existingCart[existingIndex].commune = formData.commune;
-      } else {
-        existingCart.push(itemToAdd);
-      }
-
-      localStorage.setItem("autoled_cart", JSON.stringify(existingCart));
-      window.dispatchEvent(new Event("cartUpdated"));
-
-      setAddedToCart(true);
-      try {
-        confetti({
-          particleCount: 45,
-          spread: 55,
-          origin: { y: 0.7 }
-        });
-      } catch (err) {}
-
-      setTimeout(() => {
-        setAddedToCart(false);
-      }, 3000);
-    } catch (err) {
-      console.error("Failed to add to cart:", err);
+  // Remove an item from the order
+  const handleRemoveItem = (itemId) => {
+    const updated = orderItems.filter((item) => item.id !== itemId);
+    setOrderItems(updated);
+    saveDraft(updated, formData, deliveryType);
+    if (updated.length === 0) {
+      onClose();
     }
   };
 
+  // "Ajouter un autre produit" button handler
+  const handleAddAnotherProduct = () => {
+    // 1. Save draft so information & products are fully preserved
+    saveDraft(orderItems, formData, deliveryType);
+    // 2. Close modal smoothly
+    onClose();
+    // 3. Smoothly scroll back to the products catalog
+    setTimeout(() => {
+      const catalogEl = document.getElementById("produits");
+      if (catalogEl) {
+        catalogEl.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 120);
+  };
+
+  // Submit Order
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
     setPhoneTouched(true);
 
+    if (orderItems.length === 0) {
+      setErrorMsg(isRtl ? "سلة الطلب فارغة، يرجى اختيار منتج" : "Aucun produit dans la commande.");
+      return;
+    }
+
     if (!formData.customerName.trim() || !formData.phone.trim() || !formData.wilaya.trim() || !formData.commune.trim()) {
-      setErrorMsg(isRtl ? "يرجى ملء الاسم، رقم الهاتف، ولاية وبلدية التوصيل (*)" : "Veuillez remplir le nom, téléphone, la wilaya et la commune (*)");
+      setErrorMsg(
+        isRtl
+          ? "يرجى ملء الاسم، رقم الهاتف، ولاية وبلدية التوصيل (*)"
+          : "Veuillez remplir le nom, téléphone, la wilaya et la commune (*)"
+      );
       return;
     }
 
@@ -156,19 +236,30 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       return;
     }
 
-    if (!formData.commune.trim()) {
-      setErrorMsg(t.order.form.communeRequired);
-      return;
-    }
-
     if (formData.wilaya && !isWilayaActive) {
-      setErrorMsg(isRtl ? "خدمة التوصيل لهذه الولاية متوقفة مؤقتاً." : "La livraison vers cette wilaya est momentanément suspendue.");
+      setErrorMsg(
+        isRtl
+          ? "خدمة التوصيل لهذه الولاية متوقفة مؤقتاً."
+          : "La livraison vers cette wilaya est momentanément suspendue."
+      );
       return;
     }
 
     setSubmitting(true);
     try {
       const cleanPhone = cleanAlgerianPhone(formData.phone);
+      const itemsPayload = orderItems.map((it) => ({
+        productId: it.id,
+        productName: it.nameFr,
+        productPrice: it.price,
+        productImage: it.image,
+        quantity: it.quantity
+      }));
+
+      const displayTitle = orderItems.length === 1
+        ? orderItems[0].nameFr
+        : `${orderItems.length} articles (${orderItems.map((i) => `${i.nameFr} x${i.quantity}`).join(", ")})`;
+
       const payload = {
         customerName: formData.customerName.trim(),
         phone: cleanPhone,
@@ -176,19 +267,23 @@ export function OrderModal({ isOpen, onClose, product = null }) {
         commune: formData.commune.trim(),
         deliveryType,
         deliveryFee: currentDeliveryFee,
-        quantity,
+        quantity: totalItemsCount,
         subtotal,
         total: finalTotal,
         vehicleNote: formData.vehicleNote.trim(),
-        productId: product.id,
-        productName: product.nameFr,
-        productImage: product.image || "/biled-lens.jpg",
-        productPrice: unitPrice
+        items: itemsPayload,
+        productId: orderItems[0]?.id || "",
+        productName: displayTitle,
+        productImage: orderItems[0]?.image || "/biled-lens.jpg",
+        productPrice: orderItems[0]?.price || 0
       };
 
       const res = await createOrder(payload);
       if (res && res.success) {
         setSuccessOrder(res.order || { ...payload, id: "cmd-" + Date.now(), total: finalTotal });
+        // Order completed successfully: clear draft from storage
+        localStorage.removeItem("autoled_order_draft");
+        window.dispatchEvent(new Event("orderDraftUpdated"));
         try {
           confetti({
             particleCount: 90,
@@ -206,6 +301,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     }
   };
 
+  // WhatsApp Order Confirmation Message Generator
   const getConfirmationWhatsAppUrl = () => {
     const order = successOrder || {
       id: "CMD-" + Date.now(),
@@ -217,28 +313,33 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       deliveryFee: currentDeliveryFee,
       subtotal,
       vehicleNote: formData.vehicleNote,
-      total: finalTotal
+      total: finalTotal,
+      items: orderItems
     };
 
     const typeStr = (order.deliveryType || deliveryType) === "desk"
       ? (isRtl ? "استلام من مكتب التوصيل (Stop Desk)" : "Au Bureau (Stop Desk)")
       : (isRtl ? "توصيل للمنزل (À Domicile)" : "À Domicile (Maison)");
 
+    const itemsListStr = (order.items && order.items.length > 0 ? order.items : orderItems)
+      .map((it) => `  • ${it.nameFr || it.productName} (x${it.quantity}) : ${((Number(it.price || it.productPrice) || 0) * (it.quantity || 1)).toLocaleString()} DZD`)
+      .join("\n");
+
     const msg = isRtl
-      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع الفرعي: ${order.subtotal?.toLocaleString() || subtotal.toLocaleString()} د.ج\n- طريقة التوصيل: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} د.ج)\n- المجموع الكلي للدفع: ${order.total?.toLocaleString() || finalTotal.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
-      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Sous-total: ${order.subtotal?.toLocaleString() || subtotal.toLocaleString()} DZD\n- Mode de livraison: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} DZD)\n- Total à payer: ${order.total?.toLocaleString() || finalTotal.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
+      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتجات المطلوبة (${order.quantity || totalItemsCount} قطع):\n${itemsListStr}\n- المجموع الفرعي: ${(order.subtotal || subtotal).toLocaleString()} د.ج\n- طريقة التوصيل: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} د.ج - تكلفة موحدة)\n- المجموع الكلي للدفع: ${(order.total || finalTotal).toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
+      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Articles commandés (${order.quantity || totalItemsCount} pièces):\n${itemsListStr}\n- Sous-total articles: ${(order.subtotal || subtotal).toLocaleString()} DZD\n- Mode de livraison: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} DZD - frais uniques)\n- Total à payer: ${(order.total || finalTotal).toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
 
     return getWhatsAppUrl(primaryPhone, msg);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl my-8 rounded-3xl glass-panel border border-zinc-700 bg-brand-surface shadow-2xl p-6 sm:p-8 text-start max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl my-6 sm:my-8 rounded-3xl glass-panel border border-zinc-700 bg-brand-surface shadow-2xl p-5 sm:p-7 text-start max-h-[92vh] overflow-y-auto">
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 rtl:right-auto rtl:left-5 text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-800 transition-colors"
+          className="absolute top-4 right-4 rtl:right-auto rtl:left-4 text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-800 transition-colors"
           aria-label="Fermer"
         >
           <X className="w-5 h-5" />
@@ -246,12 +347,12 @@ export function OrderModal({ isOpen, onClose, product = null }) {
 
         {/* State A: Success Confirmation Modal */}
         {successOrder ? (
-          <div className="text-center py-6 space-y-6">
+          <div className="text-center py-4 space-y-5">
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto shadow-glow-red">
               <CheckCircle className="w-9 h-9" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <span className="inline-block px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-brand-red font-mono text-xs font-bold">
                 {t.order.successModal.orderId} : {successOrder.id}
               </span>
@@ -264,25 +365,39 @@ export function OrderModal({ isOpen, onClose, product = null }) {
             </div>
 
             {/* Order Recap Box */}
-            <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 text-start space-y-2.5 text-xs">
-              <div className="flex items-center gap-3 pb-2 border-b border-zinc-800/80">
-                <img
-                  src={product.image || "/biled-lens.jpg"}
-                  alt={productTitle}
-                  className="w-12 h-12 rounded-xl object-cover border border-zinc-700 bg-zinc-900"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-white truncate">{productTitle}</div>
-                  <div className="text-zinc-400 text-[11px]">
-                    Quantité : <span className="text-white font-bold">{quantity}</span> × {unitPrice.toLocaleString()} DZD
-                  </div>
-                </div>
-                <div className="font-mono font-black text-brand-redLight text-sm">
+            <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 text-start space-y-3 text-xs">
+              <div className="font-bold text-zinc-300 border-b border-zinc-800 pb-2 flex items-center justify-between">
+                <span>{t.order.form.orderItems || (isRtl ? "المنتجات المطلوبة" : "Articles commandés")}</span>
+                <span className="text-emerald-400 font-mono font-bold">
                   {(successOrder.total || finalTotal).toLocaleString()} DZD
-                </div>
+                </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-zinc-400 text-[11px] pt-1">
+              {/* Items List in Recap */}
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {(successOrder.items && successOrder.items.length > 0 ? successOrder.items : orderItems).map((it, idx) => (
+                  <div key={idx} className="flex items-center gap-2.5 py-1 text-xs">
+                    <img
+                      src={it.image || it.productImage || "/biled-lens.jpg"}
+                      alt={it.nameFr || it.productName}
+                      className="w-9 h-9 rounded-lg object-cover border border-zinc-800 bg-zinc-900 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white truncate text-xs">
+                        {it.nameFr || it.productName}
+                      </div>
+                      <div className="text-[11px] text-zinc-400">
+                        {it.quantity} × {Number(it.price || it.productPrice || 0).toLocaleString()} DZD
+                      </div>
+                    </div>
+                    <div className="font-mono font-bold text-zinc-200 text-xs">
+                      {((Number(it.price || it.productPrice) || 0) * (it.quantity || 1)).toLocaleString()} DZD
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-zinc-400 text-[11px] pt-2 border-t border-zinc-800/80">
                 <div>
                   <span className="text-zinc-500 block">Client :</span>
                   <span className="text-white font-semibold">{successOrder.customerName}</span>
@@ -297,7 +412,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                     {successOrder.deliveryType === "desk" ? (
                       <>
                         <Building2 className="w-3 h-3 text-sky-400" />
-                        <span>Bureau / Agence ({successOrder.deliveryFee || currentDeliveryFee} DZD)</span>
+                        <span>Bureau ({successOrder.deliveryFee || currentDeliveryFee} DZD)</span>
                       </>
                     ) : (
                       <>
@@ -317,12 +432,12 @@ export function OrderModal({ isOpen, onClose, product = null }) {
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2.5 pt-1">
               <a
                 href={getConfirmationWhatsAppUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition-all"
+                className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 fill-current" />
                 <span>{t.order.successModal.whatsappBtn}</span>
@@ -330,7 +445,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
 
               <button
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white font-semibold text-xs border border-zinc-800 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white font-semibold text-xs border border-zinc-800 transition-colors cursor-pointer"
               >
                 {t.order.successModal.closeBtn}
               </button>
@@ -338,10 +453,10 @@ export function OrderModal({ isOpen, onClose, product = null }) {
           </div>
         ) : (
           /* State B: Order Input Form */
-          <div className="space-y-5">
+          <div className="space-y-4 sm:space-y-5">
             
             {/* Modal Header */}
-            <div className="space-y-1.5 border-b border-zinc-800/80 pb-4">
+            <div className="space-y-1 border-b border-zinc-800/80 pb-3.5">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-red/15 border border-brand-red/30 text-brand-red text-[11px] font-bold uppercase tracking-wider">
                 <ShoppingBag className="w-3.5 h-3.5" />
                 <span>{t.order.badge}</span>
@@ -355,25 +470,87 @@ export function OrderModal({ isOpen, onClose, product = null }) {
               </p>
             </div>
 
-            {/* Product Summary Banner */}
-            <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center gap-3.5">
-              <img
-                src={product.image || "/biled-lens.jpg"}
-                alt={productTitle}
-                className="w-16 h-16 rounded-xl object-cover bg-zinc-900 border border-zinc-700 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-white text-xs sm:text-sm truncate">
-                  {productTitle}
-                </div>
-                <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                  <span>{t.order.form.unitPrice} :</span>
-                  <span className="font-mono font-bold text-white">{unitPrice.toLocaleString()} DZD</span>
-                </div>
-                <div className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-1">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>{t.order.form.paymentInfo}</span>
-                </div>
+            {/* Multi-Item Order Products List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-zinc-300 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-brand-red" />
+                  <span>
+                    {t.order.form.orderItems || (isRtl ? "المنتجات في طلبيتك" : "Articles dans votre commande")} ({orderItems.length})
+                  </span>
+                </span>
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  {totalItemsCount} {totalItemsCount > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {orderItems.map((item) => {
+                  const itemTitle = isRtl ? item.nameAr || item.nameFr : item.nameFr;
+                  const itemTotal = (Number(item.price) || 0) * (item.quantity || 1);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center gap-3 transition-all hover:border-zinc-700"
+                    >
+                      <img
+                        src={item.image || "/biled-lens.jpg"}
+                        alt={itemTitle}
+                        className="w-14 h-14 rounded-xl object-cover bg-zinc-900 border border-zinc-700 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-xs sm:text-sm truncate">
+                          {itemTitle}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                          {item.price.toLocaleString()} DZD / unité
+                        </div>
+                        <div className="font-mono font-bold text-brand-redLight text-xs mt-0.5">
+                          = {itemTotal.toLocaleString()} DZD
+                        </div>
+                      </div>
+
+                      {/* Quantity Stepper */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center bg-zinc-900 border border-zinc-700 rounded-xl p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            aria-label="Diminuer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-8 text-center font-mono font-black text-white text-xs">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                            className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center font-bold cursor-pointer"
+                            aria-label="Augmenter"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {/* Remove item button if more than 1 item */}
+                        {orderItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            title={isRtl ? "حذف المنتج" : "Supprimer cet article"}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -385,11 +562,11 @@ export function OrderModal({ isOpen, onClose, product = null }) {
               </div>
             )}
 
-            {/* The Form */}
+            {/* Customer Information Form */}
             <form onSubmit={handleSubmit} className="space-y-4 text-xs sm:text-sm">
               
               {/* Customer Name & Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="font-semibold text-zinc-300 block mb-1">
                     {t.order.form.name}
@@ -400,9 +577,9 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                       type="text"
                       required
                       value={formData.customerName}
-                      onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                      onChange={(e) => handleFormChange("customerName", e.target.value)}
                       placeholder={t.order.form.namePlaceholder}
-                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -427,11 +604,11 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                       type="tel"
                       required
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => handleFormChange("phone", e.target.value)}
                       onBlur={() => setPhoneTouched(true)}
                       placeholder="05 / 06 / 07..."
                       maxLength={14}
-                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white placeholder-zinc-500 focus:outline-none font-mono transition-all ${
+                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white placeholder-zinc-500 focus:outline-none font-mono text-xs sm:text-sm transition-all ${
                         isPhoneValid
                           ? "border-emerald-500/80 focus:border-emerald-500"
                           : isPhoneInvalid
@@ -450,7 +627,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
               </div>
 
               {/* Wilaya & Commune Dropdowns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="font-semibold text-zinc-300 block mb-1">
                     {t.order.form.wilaya}
@@ -460,8 +637,8 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                     <select
                       required
                       value={formData.wilaya}
-                      onChange={handleWilayaChange}
-                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                      onChange={(e) => handleFormChange("wilaya", e.target.value)}
+                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-xs sm:text-sm"
                     >
                       <option value="">{t.order.form.selectWilaya}</option>
                       {ALGERIA_WILAYAS.map((w) => (
@@ -485,8 +662,8 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                       required
                       disabled={!formData.wilaya}
                       value={formData.commune}
-                      onChange={(e) => setFormData({ ...formData, commune: e.target.value })}
-                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white focus:outline-none focus:border-brand-red transition-all ${
+                      onChange={(e) => handleFormChange("commune", e.target.value)}
+                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white focus:outline-none focus:border-brand-red text-xs sm:text-sm transition-all ${
                         !formData.wilaya ? "opacity-50 cursor-not-allowed border-zinc-800 text-zinc-500" : "border-zinc-700"
                       }`}
                     >
@@ -509,11 +686,16 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                   <label className="font-semibold text-zinc-300">
                     {t.order.form.deliveryMode || (isRtl ? "طريقة التوصيل والاستلام *" : "Mode de livraison *")}
                   </label>
-                  {formData.wilaya && (
-                    <span className="text-[11px] text-zinc-400 font-mono">
-                      {formData.wilaya.split(" - ")[1] || formData.wilaya}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-500/30">
+                      {t.order.form.singleDeliveryNote || (isRtl ? "تكلفة موحدة لكامل الطرد" : "Frais uniques pour tout le colis")}
                     </span>
-                  )}
+                    {formData.wilaya && (
+                      <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
+                        {formData.wilaya.split(" - ")[1] || formData.wilaya}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {!isWilayaActive && formData.wilaya ? (
@@ -526,7 +708,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                     {/* Home / Maison Option */}
                     <button
                       type="button"
-                      onClick={() => setDeliveryType("home")}
+                      onClick={() => handleDeliveryTypeChange("home")}
                       className={`p-3 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
                         deliveryType === "home"
                           ? "bg-brand-red/15 border-brand-red text-white shadow-glow-red/20"
@@ -558,7 +740,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                     {/* Desk / Bureau Option */}
                     <button
                       type="button"
-                      onClick={() => setDeliveryType("desk")}
+                      onClick={() => handleDeliveryTypeChange("desk")}
                       className={`p-3 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
                         deliveryType === "desk"
                           ? "bg-brand-red/15 border-brand-red text-white shadow-glow-red/20"
@@ -590,61 +772,29 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                 )}
               </div>
 
-              {/* Quantity Stepper & Vehicle Note */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                <div>
-                  <label className="font-semibold text-zinc-300 block mb-1">
-                    {t.order.form.quantity}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-zinc-900 border border-zinc-700 rounded-xl p-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center font-bold cursor-pointer"
-                        disabled={quantity <= 1}
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-12 text-center font-mono font-black text-white text-sm">
-                        {quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((q) => q + 1)}
-                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center font-bold cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="text-xs text-zinc-400">
-                      × {unitPrice.toLocaleString()} DZD
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-zinc-300 block mb-1">
-                    {t.order.form.vehicleNote}
-                  </label>
-                  <div className="relative">
-                    <Car className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
-                    <input
-                      type="text"
-                      value={formData.vehicleNote}
-                      onChange={(e) => setFormData({ ...formData, vehicleNote: e.target.value })}
-                      placeholder={t.order.form.vehicleNotePlaceholder}
-                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-xs"
-                    />
-                  </div>
+              {/* Vehicle Note */}
+              <div>
+                <label className="font-semibold text-zinc-300 block mb-1">
+                  {t.order.form.vehicleNote}
+                </label>
+                <div className="relative">
+                  <Car className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
+                  <input
+                    type="text"
+                    value={formData.vehicleNote}
+                    onChange={(e) => handleFormChange("vehicleNote", e.target.value)}
+                    placeholder={t.order.form.vehicleNotePlaceholder}
+                    className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-xs"
+                  />
                 </div>
               </div>
 
               {/* Total Calculation Strip */}
               <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
                 <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>{t.order.form.subtotal || (isRtl ? "المجموع الفرعي" : "Sous-total articles")} ({quantity} × {unitPrice.toLocaleString()} DZD)</span>
+                  <span>
+                    {t.order.form.subtotal || (isRtl ? "المجموع الفرعي" : "Sous-total articles")} ({totalItemsCount} {totalItemsCount > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")})
+                  </span>
                   <span className="font-mono font-bold text-zinc-200">{subtotal.toLocaleString()} DZD</span>
                 </div>
 
@@ -658,9 +808,14 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                       )
                     </span>
                   </span>
-                  <span className="font-mono font-bold text-emerald-400">
-                    {formData.wilaya ? `+${currentDeliveryFee.toLocaleString()} DZD` : (isRtl ? "اختر الولاية أولاً" : "Sélectionnez wilaya")}
-                  </span>
+                  <div className="text-end">
+                    <span className="font-mono font-bold text-emerald-400">
+                      {formData.wilaya ? `+${currentDeliveryFee.toLocaleString()} DZD` : (isRtl ? "اختر الولاية أولاً" : "Sélectionnez wilaya")}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      ({t.order.form.singleDeliveryNote || (isRtl ? "تكلفة موحدة" : "frais uniques")})
+                    </span>
+                  </div>
                 </div>
 
                 <div className="border-t border-zinc-800 pt-2 flex items-center justify-between">
@@ -679,33 +834,22 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                 </div>
               </div>
 
-              {/* Add to Cart Button */}
+              {/* Action 1: Ajouter un autre produit (takes customer back to catalog, keeps info) */}
               <button
                 type="button"
-                onClick={handleAddToCart}
-                className={`w-full py-3.5 rounded-2xl border font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-sm ${
-                  addedToCart
-                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-300"
-                    : "bg-zinc-900 hover:bg-zinc-800 border-zinc-700 hover:border-zinc-500 text-zinc-100 hover:text-white active:scale-[0.99]"
-                }`}
+                onClick={handleAddAnotherProduct}
+                className="w-full py-3 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-brand-red/60 text-zinc-100 hover:text-white font-bold text-xs sm:text-sm tracking-wide transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] group"
               >
-                {addedToCart ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-emerald-400 animate-bounce" />
-                    <span>{t.order.form.addedToCart || (isRtl ? "تمت الإضافة إلى السلة بنجاح !" : "Produit ajouté au panier !")}</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-4 h-4 text-amber-400" />
-                    <span>{t.order.form.addToCart || (isRtl ? "إضافة إلى السلة" : "Ajouter au panier")}</span>
-                  </>
-                )}
+                <div className="w-6 h-6 rounded-lg bg-brand-red/20 group-hover:bg-brand-red text-brand-red group-hover:text-white flex items-center justify-center transition-colors">
+                  <Plus className="w-3.5 h-3.5" />
+                </div>
+                <span>{t.order.form.addAnotherProduct || (isRtl ? "إضافة منتج آخر" : "Ajouter un autre produit")}</span>
               </button>
 
-              {/* Submit Button */}
+              {/* Action 2: Confirmer la commande Submit */}
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || orderItems.length === 0}
                 className="w-full py-3.5 rounded-2xl bg-brand-red hover:bg-brand-redDark text-white font-black text-sm tracking-wide shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? (
@@ -730,3 +874,4 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     </div>
   );
 }
+
