@@ -298,16 +298,28 @@ export function ProductsTab() {
                 </div>
               </div>
 
-              {/* Price & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Price, Old Price & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="font-semibold text-zinc-300 block mb-1">
-                    {t.admin.productsTab.form.price}
+                    {t.admin.productsTab.form.price} (DZD)
                   </label>
                   <input
                     type="number"
                     value={editingProduct.price}
                     onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-zinc-300 block mb-1">
+                    {isRtl ? "السعر القديم (اختياري)" : "Ancien Prix (barré)"}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="ex. 32000"
+                    value={editingProduct.oldPrice || ""}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, oldPrice: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-mono"
                   />
                 </div>
@@ -516,16 +528,38 @@ export function ProductsTab() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="inStockCheck"
-                  checked={editingProduct.inStock}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, inStock: e.target.checked })}
-                  className="w-4 h-4 rounded text-brand-red bg-zinc-900 border-zinc-700"
-                />
-                <label htmlFor="inStockCheck" className="text-zinc-200 font-semibold cursor-pointer">
-                  {t.admin.productsTab.form.inStock}
+              <div className="flex flex-wrap items-center gap-5 pt-2 border-t border-zinc-800">
+                <label className="flex items-center gap-2 text-zinc-200 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="inStockCheck"
+                    checked={editingProduct.inStock}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, inStock: e.target.checked })}
+                    className="w-4 h-4 rounded text-brand-red bg-zinc-900 border-zinc-700"
+                  />
+                  <span>{t.admin.productsTab.form.inStock}</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-rose-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="isPromoCheck"
+                    checked={Boolean(editingProduct.isPromo)}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, isPromo: e.target.checked })}
+                    className="w-4 h-4 rounded text-rose-500 bg-zinc-900 border-zinc-700"
+                  />
+                  <span>{isRtl ? "تخفيض / عرض خاص (Promo)" : "En Promotion (Promo)"}</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-amber-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="isNewCheck"
+                    checked={Boolean(editingProduct.isNew)}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, isNew: e.target.checked })}
+                    className="w-4 h-4 rounded text-amber-500 bg-zinc-900 border-zinc-700"
+                  />
+                  <span>{isRtl ? "منتج جديد / وصل حديثاً" : "Nouveauté (Nouveau)"}</span>
                 </label>
               </div>
 

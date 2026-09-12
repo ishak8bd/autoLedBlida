@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
-import { ALGERIA_WILAYAS, getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
+import { getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
 import {
   ShoppingBag,
   Search,
@@ -13,7 +13,10 @@ import {
   Flame,
   Tag,
   Eye,
-  Images
+  Images,
+  Sparkles,
+  ArrowUpDown,
+  X
 } from "lucide-react";
 
 export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduct }) {
@@ -22,27 +25,86 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedWilaya, setSelectedWilaya] = useState("");
+  const [priceFilter, setPriceFilter] = useState("all"); // 'all' | 'asc' | 'desc' | 'under10k' | '10k-20k' | 'over20k'
+  const [onlyInStock, setOnlyInStock] = useState(false);
+  const [onlyPromo, setOnlyPromo] = useState(false);
+  const [onlyNew, setOnlyNew] = useState(false);
 
   const categories = data?.categories || [];
   const products = data?.products || [];
   const settings = data?.settings || {};
   const primaryPhone = getPrimaryPhone(settings);
 
-  // Filter products by category and search
-  const filteredProducts = products.filter((p) => {
-    const matchesCat = selectedCategory === "all" || p.category === selectedCategory;
-    const nameToSearch = (p.nameFr + " " + p.nameAr + " " + (p.descriptionFr || "")).toLowerCase();
-    const matchesSearch = !searchQuery || nameToSearch.includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSearch;
-  });
+  // Filter products by category, search, stock, promo, new, and price
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter((p) => {
+        // Category
+        if (selectedCategory !== "all" && p.category !== selectedCategory) {
+          return false;
+        }
+
+        // Search
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const nameToSearch = (
+            (p.nameFr || "") +
+            " " +
+            (p.nameAr || "") +
+            " " +
+            (p.descriptionFr || "") +
+            " " +
+            (p.badgeFr || "")
+          ).toLowerCase();
+          if (!nameToSearch.includes(query)) return false;
+        }
+
+        // Disponibilité (En Stock)
+        if (onlyInStock && p.inStock === false) {
+          return false;
+        }
+
+        // Promotion
+        if (onlyPromo) {
+          const isPromo = Boolean(
+            p.isPromo ||
+            (p.oldPrice && p.oldPrice > p.price) ||
+            (p.badgeFr && /promo|sold|remise|réduction|best-seller/i.test(p.badgeFr)) ||
+            (p.badgeAr && /تخفيض|عرض|خصم|الأكثر طلباً/i.test(p.badgeAr))
+          );
+          if (!isPromo) return false;
+        }
+
+        // Nouveauté
+        if (onlyNew) {
+          const isNew = Boolean(
+            p.isNew ||
+            (p.badgeFr && /nouveau|nouv|new|2024|2025|2026/i.test(p.badgeFr)) ||
+            (p.nameFr && /2024|2025|2026/i.test(p.nameFr)) ||
+            (p.badgeAr && /جديد/i.test(p.badgeAr))
+          );
+          if (!isNew) return false;
+        }
+
+        // Price range filtering
+        if (priceFilter === "under10k" && (p.price || 0) >= 10000) return false;
+        if (priceFilter === "10k-20k" && ((p.price || 0) < 10000 || (p.price || 0) > 20000)) return false;
+        if (priceFilter === "over20k" && (p.price || 0) <= 20000) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (priceFilter === "asc") return (a.price || 0) - (b.price || 0);
+        if (priceFilter === "desc") return (b.price || 0) - (a.price || 0);
+        return 0;
+      });
+  }, [products, selectedCategory, searchQuery, onlyInStock, onlyPromo, onlyNew, priceFilter]);
 
   // Generate WhatsApp order URL using principal phone number
   const getProductWhatsAppUrl = (product) => {
-    const wilayaText = selectedWilaya ? ` (Wilaya: ${selectedWilaya})` : "";
     const message = isRtl
-      ? `سلام عليكم، أود طلب وشراء هذا المنتج من أوتو ليد البليدة:\n- المنتج: ${product.nameAr || product.nameFr}\n- السعر: ${product.price?.toLocaleString()} د.ج${wilayaText}\nهل متوفر التوصيل؟ شكراً.`
-      : `Bonjour AutoLedBlida, je souhaite commander ce produit:\n- Produit: ${product.nameFr}\n- Prix: ${product.price?.toLocaleString()} DZD${wilayaText}\nEst-il disponible en stock / livraison ? Merci.`;
+      ? `سلام عليكم، أود طلب وشراء هذا المنتج من أوتو ليد البليدة:\n- المنتج: ${product.nameAr || product.nameFr}\n- السعر: ${product.price?.toLocaleString()} د.ج\nهل متوفر التوصيل؟ شكراً.`
+      : `Bonjour AutoLedBlida, je souhaite commander ce produit:\n- Produit: ${product.nameFr}\n- Prix: ${product.price?.toLocaleString()} DZD\nEst-il disponible en stock / livraison ? Merci.`;
 
     return getWhatsAppUrl(primaryPhone, message);
   };
@@ -128,25 +190,100 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
 
           </div>
 
-          {/* Wilaya Selection Quick Assistant */}
-          <div className="pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-            <span className="text-zinc-400 flex items-center gap-1.5 font-medium">
-              <Truck className="w-3.5 h-3.5 text-brand-red" />
-              {isRtl ? "حدد ولايتك للحصول على طلبية فورية عبر الواتساب:" : "Sélectionnez votre wilaya pour pré-remplir votre commande WhatsApp :"}
-            </span>
+          {/* Quick Filters Toolbar: Prix, Disponibilité, Promotion, Nouveauté */}
+          <div className="pt-3 border-t border-zinc-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+            {/* Filter Toggle Buttons: Disponibilité, Promotion, Nouveauté */}
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <span className="text-zinc-400 font-semibold flex items-center gap-1.5 mr-1 rtl:mr-0 rtl:ml-1">
+                <Filter className="w-3.5 h-3.5 text-brand-red" />
+                <span>{isRtl ? "فلترة :" : "Filtres :"}</span>
+              </span>
 
-            <select
-              value={selectedWilaya}
-              onChange={(e) => setSelectedWilaya(e.target.value)}
-              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-brand-red font-medium"
-            >
-              <option value="">{t.products.wilayaSelectPlaceholder}</option>
-              {ALGERIA_WILAYAS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-            </select>
+              {/* Disponibilité (En Stock) */}
+              <button
+                type="button"
+                onClick={() => setOnlyInStock(!onlyInStock)}
+                className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  onlyInStock
+                    ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-300 shadow-sm"
+                    : "bg-zinc-900 border-zinc-700/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600"
+                }`}
+                title={isRtl ? "عرض المتوفر في المخزون فقط" : "Afficher uniquement les produits disponibles"}
+              >
+                <div className={`w-2 h-2 rounded-full ${onlyInStock ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
+                <span>{isRtl ? "متوفر في المخزون" : "En Stock"}</span>
+              </button>
+
+              {/* Promotion */}
+              <button
+                type="button"
+                onClick={() => setOnlyPromo(!onlyPromo)}
+                className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  onlyPromo
+                    ? "bg-brand-red/25 border-brand-red text-rose-300 shadow-glow-red"
+                    : "bg-zinc-900 border-zinc-700/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600"
+                }`}
+                title={isRtl ? "عروض وتخفيضات خاصة" : "Afficher les articles en promotion"}
+              >
+                <Flame className={`w-3.5 h-3.5 ${onlyPromo ? "text-brand-redLight fill-current" : "text-zinc-500"}`} />
+                <span>{isRtl ? "تخفيضات" : "Promotions"}</span>
+              </button>
+
+              {/* Nouveauté */}
+              <button
+                type="button"
+                onClick={() => setOnlyNew(!onlyNew)}
+                className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  onlyNew
+                    ? "bg-amber-400/20 border-amber-400/60 text-amber-300 shadow-sm"
+                    : "bg-zinc-900 border-zinc-700/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600"
+                }`}
+                title={isRtl ? "أحدث الموديلات والمنتجات" : "Afficher les nouveautés"}
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${onlyNew ? "text-amber-400" : "text-zinc-500"}`} />
+                <span>{isRtl ? "وصل حديثاً" : "Nouveautés"}</span>
+              </button>
+
+              {/* Clear active quick filters */}
+              {(onlyInStock || onlyPromo || onlyNew || priceFilter !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOnlyInStock(false);
+                    setOnlyPromo(false);
+                    setOnlyNew(false);
+                    setPriceFilter("all");
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                  title={isRtl ? "إلغاء الفلاتر" : "Réinitialiser les filtres"}
+                >
+                  <X className="w-3 h-3" />
+                  <span>{isRtl ? "إعادة ضبط" : "Effacer"}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Prix Selector (Sort / Range) */}
+            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+              <label htmlFor="priceFilterSelect" className="text-zinc-400 font-semibold flex items-center gap-1.5 shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5 text-brand-red" />
+                <span>{isRtl ? "السعر :" : "Prix :"}</span>
+              </label>
+
+              <select
+                id="priceFilterSelect"
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value)}
+                className="bg-zinc-900 border border-zinc-700/80 rounded-xl px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-brand-red font-semibold cursor-pointer w-full md:w-auto"
+              >
+                <option value="all">{isRtl ? "جميع الأسعار (تلقائي)" : "Tous les prix (Par défaut)"}</option>
+                <option value="asc">{isRtl ? "السعر: من الأقل إلى الأعلى (↗)" : "Prix croissant (↗)"}</option>
+                <option value="desc">{isRtl ? "السعر: من الأعلى إلى الأقل (↘)" : "Prix décroissant (↘)"}</option>
+                <option value="under10k">{isRtl ? "أقل من 10,000 د.ج" : "Moins de 10 000 DZD"}</option>
+                <option value="10k-20k">{isRtl ? "10,000 إلى 20,000 د.ج" : "10 000 à 20 000 DZD"}</option>
+                <option value="over20k">{isRtl ? "أكثر من 20,000 د.ج" : "Plus de 20 000 DZD"}</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -210,14 +347,26 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
                       </div>
                     )}
 
-                    {/* Promotional Badge (e.g. Best-Seller) */}
-                    {badge && (
-                      <div className="absolute top-2 left-2 sm:top-3 sm:left-3 rtl:left-auto rtl:right-2 rtl:sm:right-3 z-10">
+                    {/* Promotional / Novelty Badges */}
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 rtl:left-auto rtl:right-2 rtl:sm:right-3 z-10 flex flex-col gap-1 items-start">
+                      {badge && (
                         <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-brand-red text-white text-[10px] sm:text-[11px] font-black tracking-wider uppercase shadow-glow-red">
                           {badge}
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {(product.isPromo || (product.oldPrice && Number(product.oldPrice) > Number(product.price))) && !badge?.toLowerCase().includes("promo") && (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] sm:text-[10px] font-black uppercase flex items-center gap-0.5 shadow-sm">
+                          <Flame className="w-2.5 h-2.5 fill-current" />
+                          <span>Promo</span>
+                        </span>
+                      )}
+                      {product.isNew && !badge?.toLowerCase().includes("nouv") && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500 text-black text-[9px] sm:text-[10px] font-black uppercase flex items-center gap-0.5 shadow-sm">
+                          <Sparkles className="w-2.5 h-2.5 fill-current" />
+                          <span>{isRtl ? "جديد" : "Nouveau"}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Card Content (Compact & Sleek) */}
@@ -233,15 +382,22 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
 
                     {/* Price and Action Buttons */}
                     <div className="pt-2 sm:pt-3 border-t border-zinc-800/80 space-y-2.5">
-                      <div className="flex items-baseline justify-between">
+                      <div className="flex items-baseline justify-between gap-1">
                         <span className="text-[10px] sm:text-xs text-zinc-400 font-medium">
                           {isRtl ? "السعر :" : "Prix :"}
                         </span>
-                        <div className="text-sm sm:text-lg font-black text-white font-mono">
-                          {product.price ? product.price.toLocaleString() : "Sur devis"}{" "}
-                          <span className="text-brand-redLight text-xs sm:text-sm font-bold">
-                            {t.products.currency}
-                          </span>
+                        <div className="flex items-baseline gap-1.5">
+                          {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+                            <span className="text-[10px] sm:text-xs text-zinc-500 line-through font-mono">
+                              {Number(product.oldPrice).toLocaleString()}
+                            </span>
+                          )}
+                          <div className="text-sm sm:text-lg font-black text-white font-mono">
+                            {product.price ? product.price.toLocaleString() : "Sur devis"}{" "}
+                            <span className="text-brand-redLight text-xs sm:text-sm font-bold">
+                              {t.products.currency}
+                            </span>
+                          </div>
                         </div>
                       </div>
 

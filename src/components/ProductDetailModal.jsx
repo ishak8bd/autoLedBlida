@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import {
   X,
@@ -83,6 +83,16 @@ export function ProductDetailModal({
                     {badge}
                   </span>
                 )}
+                {(product.isPromo || (product.oldPrice && Number(product.oldPrice) > Number(product.price))) && !badge?.toLowerCase().includes("promo") && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black tracking-wide shadow-sm uppercase">
+                    Promo
+                  </span>
+                )}
+                {product.isNew && !badge?.toLowerCase().includes("nouv") && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black tracking-wide shadow-sm uppercase">
+                    {isRtl ? "جديد" : "Nouveau"}
+                  </span>
+                )}
               </div>
 
               <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 z-10">
@@ -163,11 +173,18 @@ export function ProductDetailModal({
                 <span className="text-xs text-zinc-400 font-medium">
                   {isRtl ? "السعر الإجمالي :" : "Prix unitaire :"}
                 </span>
-                <div className="text-2xl font-black text-white font-mono">
-                  {product.price ? product.price.toLocaleString() : "Sur devis"}{" "}
-                  <span className="text-brand-redLight text-base font-bold">
-                    {t.products.currency}
-                  </span>
+                <div className="flex items-baseline gap-2">
+                  {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+                    <span className="text-sm text-zinc-500 line-through font-mono">
+                      {Number(product.oldPrice).toLocaleString()} {t.products.currency}
+                    </span>
+                  )}
+                  <div className="text-2xl font-black text-white font-mono">
+                    {product.price ? product.price.toLocaleString() : "Sur devis"}{" "}
+                    <span className="text-brand-redLight text-base font-bold">
+                      {t.products.currency}
+                    </span>
+                  </div>
                 </div>
               </div>
 
