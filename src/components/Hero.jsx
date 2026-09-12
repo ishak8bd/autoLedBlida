@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
+import { getPrimaryPhone } from "../data/algeriaWilayasCommunes";
 import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
   ShoppingBag,
+  MapPin,
   Phone,
   Flame,
   Sun,
@@ -20,8 +22,8 @@ export function Hero({ onOpenBooking }) {
   const [lightsOn, setLightsOn] = useState(true);
 
   const settings = data?.settings || {};
-  const phoneNumbers = settings.phoneNumbers || [];
-  const primaryPhone = phoneNumbers.find((p) => p.isPrimary) || phoneNumbers[0] || { number: "0561147039" };
+  const primaryPhoneNumber = getPrimaryPhone(settings);
+  const mapsUrl = settings.googleMapsUrl || "https://maps.app.goo.gl/H6D3GoJHLaYGHUMm8?g_st=ic";
 
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
 
@@ -89,13 +91,25 @@ export function Hero({ onOpenBooking }) {
                 <span>{t.hero.ctaProducts}</span>
               </a>
 
+              {/* Workshop Google Maps Address Button */}
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-6 py-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-brand-red text-zinc-200 hover:text-white text-base font-bold transition-all flex items-center justify-center gap-2.5 group"
+                title={isRtl ? "فتح موقع الورشة على خرائط جوجل" : "Ouvrir l'adresse de l'atelier sur Google Maps"}
+              >
+                <MapPin className="w-5 h-5 text-brand-red group-hover:scale-110 transition-transform" />
+                <span>{t.hero.ctaMaps || (isRtl ? "عنوان الورشة" : "Adresse de l'atelier")}</span>
+              </a>
+
               {/* Quick Call Button */}
               <a
-                href={`tel:${primaryPhone.number}`}
+                href={`tel:${primaryPhoneNumber}`}
                 className="w-full sm:w-auto px-4 py-4 rounded-xl bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-sm font-semibold transition-all flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4 text-emerald-400" />
-                <span className="font-mono">{primaryPhone.number}</span>
+                <span className="font-mono">{primaryPhoneNumber}</span>
               </a>
             </div>
 
