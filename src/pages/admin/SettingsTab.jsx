@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Lock, Save, Check } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
@@ -78,6 +78,43 @@ export function SettingsTab() {
                 })
               }
               className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label className="text-zinc-400 block mb-1">
+              {t.admin.settingsTab.bannerBadgeFr} <span className="text-zinc-500 font-normal">({isRtl ? "اختياري" : "Optionnel - laisser vide pour masquer"})</span>
+            </label>
+            <input
+              type="text"
+              placeholder={isRtl ? "اتركه فارغاً لإخفاء الشارة" : "Laisser vide pour ne pas afficher de badge"}
+              value={settingsForm.holidayBanner?.badgeFr || ""}
+              onChange={(e) =>
+                setSettingsForm({
+                  ...settingsForm,
+                  holidayBanner: { ...settingsForm.holidayBanner, badgeFr: e.target.value }
+                })
+              }
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500"
+            />
+          </div>
+          <div>
+            <label className="text-zinc-400 block mb-1">
+              {t.admin.settingsTab.bannerBadgeAr} <span className="text-zinc-500 font-normal">({isRtl ? "اختياري" : "Optionnel"})</span>
+            </label>
+            <input
+              type="text"
+              placeholder={isRtl ? "اتركه فارغاً لإخفاء الشارة" : "Laisser vide pour masquer"}
+              value={settingsForm.holidayBanner?.badgeAr || ""}
+              onChange={(e) =>
+                setSettingsForm({
+                  ...settingsForm,
+                  holidayBanner: { ...settingsForm.holidayBanner, badgeAr: e.target.value }
+                })
+              }
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500"
             />
           </div>
         </div>

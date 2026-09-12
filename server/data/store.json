@@ -56,12 +56,12 @@
     "openingHoursAr": "السبت - الخميس : 09:00 - 19:00 | الجمعة : عطلة",
     "holidayBanner": {
       "enabled": true,
-      "titleFr": " Vacances Annuelle",
+      "titleFr": "Vacances Annuelle",
       "titleAr": "عطلة سنوية",
       "messageFr": "Livraison rapide dans les 69 wilayas d'Algérie ! Pour vos installations et réglages optiques à Ouled Yaïch, réservez votre rendez-vous en ligne.",
       "messageAr": "توصيل سريع ومتوفر لكافة الـ 69 ولاية! لتركيب وتعديل إنارة سيارتكم في ورشتنا بأولاد يعيش، احجزوا موعدكم مباشرة عبر الموقع.",
-      "badgeFr": "69 Wilayas",
-      "badgeAr": "69 ولاية"
+      "badgeFr": "",
+      "badgeAr": ""
     }
   },
   "categories": [

@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
 import { Megaphone, X, Truck, Calendar } from "lucide-react";
@@ -24,12 +24,12 @@ export function HolidayBanner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-            {badge && (
+            {badge && badge.trim() && (
               <span className="px-2 py-0.5 rounded-full bg-brand-red text-white text-[11px] font-extrabold tracking-wide uppercase shadow-sm">
-                {badge}
+                {badge.trim()}
               </span>
             )}
-            <span className="font-bold text-white tracking-wide">{title} :</span>
+            <span className="font-bold text-white tracking-wide">{title?.trim()} :</span>
             <span className="text-zinc-300">{message}</span>
           </div>
         </div>
