@@ -17,11 +17,99 @@ import {
   User,
   Tag,
   Home,
-  Building2
+  Building2,
+  Package
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 import { getWhatsAppUrl, ALGERIA_WILAYAS, getCommunesByWilaya, isValidAlgerianPhone, cleanAlgerianPhone } from "../../data/algeriaWilayasCommunes";
+
+export function getOrderProductsSummary(order) {
+  if (!order) return { isMulti: false, totalQty: 1, items: [] };
+
+  // 1. If items array exists
+  if (Array.isArray(order.items) && order.items.length > 0) {
+    const totalQty = order.items.reduce(
+      (acc, it) => acc + Math.max(1, Number(it.quantity) || 1),
+      0
+    );
+    return {
+      isMulti: order.items.length > 1 || totalQty > 1,
+      totalQty,
+      items: order.items.map((it) => ({
+        name: it.productName || it.nameFr || "Produit",
+        quantity: Math.max(1, Number(it.quantity) || 1),
+        price: Number(it.productPrice || it.price) || 0,
+        image: it.productImage || it.image || ""
+      }))
+    };
+  }
+
+  const rawName = String(order.productName || "").trim();
+
+  // 2. Multiline bullet string: "X articles\n•A (x1)\n•B (x2)"
+  if (rawName.includes("•")) {
+    const lines = rawName.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const bulletLines = lines.filter((l) => l.startsWith("•"));
+    if (bulletLines.length > 0) {
+      const parsedItems = bulletLines.map((line) => {
+        const clean = line.replace(/^•\s*/, "");
+        const m = clean.match(/^(.*?)(?:\s*\(x(\d+)\)|\s*x(\d+))\s*$/i);
+        if (m) {
+          return {
+            name: m[1].trim(),
+            quantity: parseInt(m[2] || m[3], 10) || 1
+          };
+        }
+        return { name: clean, quantity: 1 };
+      });
+      const totalQty = parsedItems.reduce((acc, it) => acc + it.quantity, 0);
+      return {
+        isMulti: true,
+        totalQty: totalQty || Number(order.quantity) || 1,
+        items: parsedItems
+      };
+    }
+  }
+
+  // 3. Parenthesized string: "X articles (A x1, B x2...)"
+  const parenMatch = rawName.match(/^\s*(\d+)\s+articles?\s*\((.+)\)\s*$/i);
+  if (parenMatch) {
+    const inner = parenMatch[2];
+    const parts = inner.split(/,\s*(?=[^,]+(?:x|\(x)\d+)/i);
+    const parsedItems = parts.map((part) => {
+      const qMatch = part.match(/^(.*?)(?:\s*\(?x(\d+)\)?)\s*$/i);
+      if (qMatch) {
+        return {
+          name: qMatch[1].trim(),
+          quantity: parseInt(qMatch[2], 10) || 1
+        };
+      }
+      return { name: part.trim(), quantity: 1 };
+    });
+    const totalQty = parsedItems.reduce((acc, it) => acc + it.quantity, 0);
+    return {
+      isMulti: true,
+      totalQty: totalQty || Number(order.quantity) || parseInt(parenMatch[1], 10) || 1,
+      items: parsedItems
+    };
+  }
+
+  // 4. Single product
+  const singleQty = Math.max(1, Number(order.quantity) || 1);
+  return {
+    isMulti: false,
+    totalQty: singleQty,
+    items: [
+      {
+        name: rawName || "Produit",
+        quantity: singleQty,
+        price: Number(order.productPrice) || 0,
+        image: order.productImage || ""
+      }
+    ]
+  };
+}
 
 export function OrdersTab() {
   const { t, isRtl } = useLanguage();
@@ -69,22 +157,29 @@ export function OrdersTab() {
       "Statut"
     ];
 
-    const rows = orders.map((o) => [
-      o.id,
-      o.createdAt ? new Date(o.createdAt).toLocaleString("fr-FR") : "",
-      `"${(o.customerName || "").replace(/"/g, '""')}"`,
-      `"${(o.phone || "").replace(/"/g, '""')}"`,
-      `"${(o.wilaya || "").replace(/"/g, '""')}"`,
-      `"${(o.commune || "").replace(/"/g, '""')}"`,
-      o.deliveryType === "desk" ? "Bureau (Stop Desk)" : "A Domicile (Maison)",
-      o.deliveryFee || 0,
-      `"${(o.productName || "").replace(/"/g, '""')}"`,
-      o.quantity || 1,
-      o.productPrice || 0,
-      o.total || ((o.productPrice || 0) * (o.quantity || 1)),
-      `"${(o.vehicleNote || "").replace(/"/g, '""')}"`,
-      o.status || "nouveau"
-    ]);
+    const rows = orders.map((o) => {
+      const summary = getOrderProductsSummary(o);
+      const prodStr = summary.isMulti
+        ? `${summary.totalQty} articles:\n` + summary.items.map((it) => `• ${it.name} (x${it.quantity})`).join("\n")
+        : `${summary.items[0]?.name || o.productName} (x${summary.totalQty})`;
+
+      return [
+        o.id,
+        o.createdAt ? new Date(o.createdAt).toLocaleString("fr-FR") : "",
+        `"${(o.customerName || "").replace(/"/g, '""')}"`,
+        `"${(o.phone || "").replace(/"/g, '""')}"`,
+        `"${(o.wilaya || "").replace(/"/g, '""')}"`,
+        `"${(o.commune || "").replace(/"/g, '""')}"`,
+        o.deliveryType === "desk" ? "Bureau (Stop Desk)" : "A Domicile (Maison)",
+        o.deliveryFee || 0,
+        `"${prodStr.replace(/"/g, '""')}"`,
+        summary.totalQty,
+        o.productPrice || 0,
+        o.total || ((o.productPrice || 0) * summary.totalQty + (o.deliveryFee || 0)),
+        `"${(o.vehicleNote || "").replace(/"/g, '""')}"`,
+        o.status || "nouveau"
+      ];
+    });
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -322,6 +417,7 @@ export function OrdersTab() {
                 })
               : "";
             const totalVal = o.total !== undefined ? o.total : ((o.productPrice || 0) * (o.quantity || 1));
+            const summary = getOrderProductsSummary(o);
 
             return (
               <div
@@ -346,7 +442,7 @@ export function OrdersTab() {
                       {totalVal?.toLocaleString()} DZD
                     </div>
                     <div className="text-[10px] text-zinc-400 font-mono">
-                      {o.quantity || 1} {o.quantity > 1 ? "unités" : "unité"}
+                      {summary.totalQty} {summary.totalQty > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}
                     </div>
                   </div>
                 </div>
@@ -378,11 +474,34 @@ export function OrdersTab() {
 
                 {/* Product & Vehicle Note */}
                 <div className="pt-2 border-t border-zinc-800/80 text-xs">
-                  <div className="font-semibold text-white line-clamp-1">
-                    📦 {o.productName}
-                  </div>
+                  {summary.isMulti ? (
+                    <div className="space-y-1 py-0.5">
+                      <div className="font-bold text-amber-300 font-mono text-xs">
+                        {summary.totalQty} {summary.totalQty > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}
+                      </div>
+                      <div className="space-y-0.5">
+                        {summary.items.map((item, idx) => (
+                          <div key={idx} className="text-zinc-200 leading-snug">
+                            <span className="text-zinc-400 font-bold mr-1 rtl:mr-0 rtl:ml-1">•</span>
+                            <span className="font-medium text-white">{item.name}</span>{" "}
+                            <span className="font-mono text-amber-300 font-bold">(x{item.quantity})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="font-semibold text-white line-clamp-1">
+                      📦 {summary.items[0]?.name || o.productName}
+                      {summary.totalQty > 1 && (
+                        <span className="font-mono text-amber-300 font-bold ml-1.5 rtl:mr-1.5">
+                          (x{summary.totalQty})
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {o.vehicleNote && (
-                    <div className="text-[11px] text-brand-redLight font-medium truncate mt-0.5">
+                    <div className="text-[11px] text-brand-redLight font-medium truncate mt-1">
                       🚗 {o.vehicleNote}
                     </div>
                   )}
@@ -404,8 +523,8 @@ export function OrdersTab() {
                       href={getWhatsAppUrl(
                         o.phone,
                         isRtl
-                          ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك (${o.productName}) من متجر أوتو ليد البليدة...`
-                          : `Bonjour ${o.customerName}, concernant votre commande (${o.productName}) chez AutoLedBlida...`
+                          ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك من متجر أوتو ليد البليدة:\n- رقم الطلبية: ${o.id}\n- المنتجات المطلوبة (${summary.totalQty} قطع):\n${summary.items.map((it) => `  • ${it.name} (x${it.quantity})`).join("\n")}\n- المجموع الكلي: ${totalVal?.toLocaleString()} د.ج...`
+                          : `Bonjour ${o.customerName}, concernant votre commande (${summary.totalQty} articles) chez AutoLedBlida:\n${summary.items.map((it) => `• ${it.name} (x${it.quantity})`).join("\n")}\nTotal: ${totalVal?.toLocaleString()} DZD...`
                       )}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -502,6 +621,7 @@ export function OrdersTab() {
                     : "";
 
                   const totalVal = o.total !== undefined ? o.total : ((o.productPrice || 0) * (o.quantity || 1));
+                  const summary = getOrderProductsSummary(o);
 
                   return (
                     <tr key={o.id} className="hover:bg-zinc-800/40 transition-colors">
@@ -553,23 +673,40 @@ export function OrdersTab() {
 
                       {/* Product & Quantity */}
                       <td className="p-3.5 px-4">
-                        <div className="flex items-center gap-2.5">
-                          {o.productImage && (
-                            <img
-                              src={o.productImage}
-                              alt={o.productName}
-                              className="w-10 h-10 rounded-lg object-cover bg-zinc-900 border border-zinc-700 shrink-0"
-                            />
-                          )}
-                          <div>
-                            <div className="font-semibold text-white line-clamp-1 max-w-xs">
-                              {o.productName}
+                        {summary.isMulti ? (
+                          <div className="space-y-1 text-xs py-0.5 max-w-sm">
+                            <div className="font-bold text-amber-300 font-mono text-xs">
+                              {summary.totalQty} {summary.totalQty > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}
                             </div>
-                            <div className="text-[11px] text-zinc-400 font-mono">
-                              Quantité : <span className="text-white font-bold">{o.quantity || 1}</span>
+                            <div className="space-y-0.5">
+                              {summary.items.map((item, idx) => (
+                                <div key={idx} className="text-zinc-200 leading-snug">
+                                  <span className="text-zinc-400 font-bold mr-1 rtl:mr-0 rtl:ml-1">•</span>
+                                  <span className="font-medium text-white">{item.name}</span>{" "}
+                                  <span className="font-mono text-amber-300 font-bold whitespace-nowrap">(x{item.quantity})</span>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            {o.productImage && (
+                              <img
+                                src={o.productImage}
+                                alt={o.productName}
+                                className="w-10 h-10 rounded-lg object-cover bg-zinc-900 border border-zinc-700 shrink-0"
+                              />
+                            )}
+                            <div>
+                              <div className="font-semibold text-white line-clamp-1 max-w-xs">
+                                {summary.items[0]?.name || o.productName}
+                              </div>
+                              <div className="text-[11px] text-zinc-400 font-mono">
+                                Quantité : <span className="text-white font-bold">{summary.totalQty}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Total Price */}
@@ -626,8 +763,8 @@ export function OrdersTab() {
                             href={getWhatsAppUrl(
                               o.phone,
                               isRtl
-                                ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك (${o.productName}) من متجر أوتو ليد البليدة...`
-                                : `Bonjour ${o.customerName}, concernant votre commande (${o.productName}) chez AutoLedBlida...`
+                                ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك من متجر أوتو ليد البليدة:\n- رقم الطلبية: ${o.id}\n- المنتجات المطلوبة (${summary.totalQty} قطع):\n${summary.items.map((it) => `  • ${it.name} (x${it.quantity})`).join("\n")}\n- المجموع الكلي: ${totalVal?.toLocaleString()} د.ج...`
+                                : `Bonjour ${o.customerName}, concernant votre commande (${summary.totalQty} articles) chez AutoLedBlida :\n${summary.items.map((it) => `• ${it.name} (x${it.quantity})`).join("\n")}\nTotal: ${totalVal?.toLocaleString()} DZD...`
                             )}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -894,13 +1031,13 @@ export function OrdersTab() {
                     ))}
                   </select>
 
-                  <input
-                    type="text"
+                  <textarea
+                    rows={editingOrder.productName?.includes("\n") || editingOrder.productName?.includes("•") ? 4 : 2}
                     required
                     value={editingOrder.productName}
                     onChange={(e) => setEditingOrder({ ...editingOrder, productName: e.target.value })}
-                    placeholder="Nom du produit"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                    placeholder="Nom du produit ou liste des articles (ex. 4 articles: •...)"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red font-mono text-xs leading-relaxed"
                   />
                 </div>
               </div>

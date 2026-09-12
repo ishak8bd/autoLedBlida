@@ -134,9 +134,9 @@ app.post("/api/orders", (req, res) => {
   const dFee = Number(deliveryFee) || 0;
   const total = req.body.total !== undefined ? Number(req.body.total) : (subtotal + dFee);
 
-  const displayProductName = items.length === 1
+  const displayProductName = items.length === 1 && items[0].quantity === 1
     ? items[0].productName
-    : `${items.length} articles (${items.map((i) => `${i.productName} x${i.quantity}`).join(", ")})`;
+    : `${totalQty} articles\n${items.map((i) => `•${i.productName} (x${i.quantity})`).join("\n")}`;
 
   const newOrder = {
     id: "cmd-" + Date.now(),

@@ -256,9 +256,9 @@ export function OrderModal({ isOpen, onClose, product = null }) {
         quantity: it.quantity
       }));
 
-      const displayTitle = orderItems.length === 1
+      const displayTitle = orderItems.length === 1 && orderItems[0].quantity === 1
         ? orderItems[0].nameFr
-        : `${orderItems.length} articles (${orderItems.map((i) => `${i.nameFr} x${i.quantity}`).join(", ")})`;
+        : `${totalItemsCount} articles\n${orderItems.map((i) => `•${i.nameFr} (x${i.quantity})`).join("\n")}`;
 
       const payload = {
         customerName: formData.customerName.trim(),
