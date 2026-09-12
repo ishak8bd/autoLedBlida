@@ -284,11 +284,13 @@ export function ProductsTab() {
                                 </span>
                               )}
                             </div>
-                            <div className="min-w-0 max-w-xs">
-                              <div className="font-bold text-white line-clamp-1">{p.nameFr}</div>
-                              <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                            <div className="min-w-0 max-w-md">
+                              <div className="font-bold text-white leading-snug whitespace-normal">{p.nameFr}</div>
+                              {p.nameAr && (
+                                <div className="text-xs text-zinc-400 mt-0.5 leading-snug whitespace-normal">{p.nameAr}</div>
+                              )}
                               {p.badgeFr && (
-                                <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-950/60 border border-amber-500/40 text-amber-300">
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 border border-amber-500/40 text-amber-300">
                                   {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
                                 </span>
                               )}
@@ -392,8 +394,10 @@ export function ProductsTab() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-white text-sm line-clamp-1">{p.nameFr}</div>
-                        <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                        <div className="font-bold text-white text-sm leading-snug">{p.nameFr}</div>
+                        {p.nameAr && (
+                          <div className="text-xs text-zinc-400 mt-0.5 leading-snug">{p.nameAr}</div>
+                        )}
                         <div className="mt-1 flex items-baseline gap-2">
                           <span className="font-mono font-black text-brand-redLight text-sm">
                             {p.price?.toLocaleString()} DZD

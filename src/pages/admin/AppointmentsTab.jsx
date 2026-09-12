@@ -10,6 +10,7 @@ export function AppointmentsTab() {
 
   const [aptFilter, setAptFilter] = useState("all");
   const [aptSearch, setAptSearch] = useState("");
+  const [viewMode, setViewMode] = useState("table"); // "table" or "cards"
   const [editingApt, setEditingApt] = useState(null);
   const [showAptModal, setShowAptModal] = useState(false);
   const [formError, setFormError] = useState("");
@@ -215,20 +216,49 @@ export function AppointmentsTab() {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
-          <input
-            type="text"
-            value={aptSearch}
-            onChange={(e) => setAptSearch(e.target.value)}
-            placeholder={t.admin.appointmentsTab.search}
-            className="w-full pl-9 pr-4 rtl:pl-4 rtl:pr-9 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-          />
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
+            <input
+              type="text"
+              value={aptSearch}
+              onChange={(e) => setAptSearch(e.target.value)}
+              placeholder={t.admin.appointmentsTab.search}
+              className="w-full pl-9 pr-4 rtl:pl-4 rtl:pr-9 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+            />
+          </div>
+
+          {/* View Mode Toggle: Tableau / Cartes */}
+          <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "table"
+                  ? "bg-brand-red text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              {isRtl ? "جدول" : "Tableau"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "cards"
+                  ? "bg-brand-red text-white shadow-sm"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              {isRtl ? "بطاقات" : "Cartes"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* MOBILE VIEW: Responsive Card List (visible on phones, hidden on desktop) */}
-      <div className="block md:hidden space-y-3">
+      {/* APPOINTMENTS DISPLAY: Responsive Table or Responsive Cards */}
+      {viewMode === "cards" ? (
+        <div className="space-y-3">
         {sortedAppointments.length === 0 ? (
           <div className="text-center py-10 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
             <Calendar className="w-10 h-10 mx-auto mb-2 text-zinc-600 opacity-50" />
@@ -354,10 +384,14 @@ export function AppointmentsTab() {
           ))
         )}
       </div>
-
-      {/* DESKTOP VIEW: Table (visible on md+, scrollable with min-w-[720px]) */}
-      <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
-        <div className="overflow-x-auto">
+    ) : (
+      /* TABLE VIEW (Available on all devices with horizontal scrolling & swipe hint) */
+      <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
+        {/* Mobile swipe hint */}
+        <div className="block md:hidden text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
+          {isRtl ? "مرر أفقياً لعرض كامل الجدول ↔" : "Glissez horizontalement pour voir tout le tableau ↔"}
+        </div>
+        <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full text-start text-xs sm:text-sm min-w-[720px]">
             <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
               <tr>
@@ -479,6 +513,7 @@ export function AppointmentsTab() {
           </table>
         </div>
       </div>
+    )}
 
       {/* ADD / EDIT APPOINTMENT MODAL */}
       {showAptModal && editingApt && (

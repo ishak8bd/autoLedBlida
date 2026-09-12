@@ -49,15 +49,12 @@ export function Admin({ onBackToSite }) {
       {/* Admin Topbar */}
       <header className="sticky top-0 z-40 bg-zinc-950 border-b border-zinc-800 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-brand-red shadow-glow-red bg-black shrink-0">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <div>
-            <div className="font-extrabold text-base sm:text-lg text-white flex items-center gap-2">
+            <div className="font-extrabold text-base sm:text-lg text-white">
               <span>{isRtl ? "لوحة تحكم أوتو ليد" : "AutoLedBlida Back-Office"}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold">
-                PRO PIN
-              </span>
             </div>
             <div className="text-[11px] text-zinc-400">
               {isRtl ? "إدارة المواعيد، المخزون وأرقام الهاتف" : "Gestion des rendez-vous, stock et téléphones"}
@@ -65,21 +62,26 @@ export function Admin({ onBackToSite }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Switcher: FR for French, ض for Arabic */}
           <button
             onClick={toggleLang}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-bold hover:text-white"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-red text-zinc-200 text-xs font-black transition-all"
+            title={lang === "fr" ? "Changer de langue / تغيير اللغة (ض)" : "Changer de langue / تغيير اللغة (FR)"}
+            aria-label="Changer de langue"
           >
             <Globe className="w-3.5 h-3.5 text-brand-red" />
-            <span>{lang === "fr" ? "العربية" : "Français"}</span>
+            <span className="font-black text-xs uppercase">{lang === "fr" ? "FR" : "ض"}</span>
           </button>
 
+          {/* Logout Button: Symbol only, no text */}
           <button
             onClick={onBackToSite}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-bold transition-colors"
+            className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-rose-400 hover:text-rose-300 transition-colors shrink-0"
+            title={t.admin.logout || "Quitter"}
+            aria-label={t.admin.logout || "Quitter"}
           >
-            <LogOut className="w-3.5 h-3.5 text-rose-400" />
-            <span>{t.admin.logout}</span>
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>

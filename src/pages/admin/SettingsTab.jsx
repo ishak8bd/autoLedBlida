@@ -151,22 +151,13 @@ export function SettingsTab() {
         </div>
       </div>
 
-      {/* General Info (Hours, Wilayas, Maps) */}
+      {/* General Info (Hours, Maps) */}
       <div className="p-6 rounded-3xl glass-panel border border-zinc-800 space-y-4">
         <h4 className="font-bold text-white text-base border-b border-zinc-800 pb-3">
-          {isRtl ? "معلومات المتجر والخرائط والولايات" : "Informations Boutique & Horaires"}
+          {isRtl ? "معلومات المتجر والخرائط وأوقات العمل" : "Informations Boutique & Horaires"}
         </h4>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div>
-            <label className="text-zinc-400 block mb-1">{t.admin.settingsTab.wilayasCount}</label>
-            <input
-              type="number"
-              value={settingsForm.deliveryWilayas || 69}
-              onChange={(e) => setSettingsForm({ ...settingsForm, deliveryWilayas: Number(e.target.value) })}
-              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono"
-            />
-          </div>
+        <div className="text-xs">
           <div>
             <label className="text-zinc-400 block mb-1">{t.admin.settingsTab.mapsLink}</label>
             <input
