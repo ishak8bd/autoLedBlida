@@ -140,32 +140,6 @@ export function Hero({ onOpenBooking }) {
                 {/* Realistic Headlight Simulation */}
                 {lightsOn ? (
                   <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-                    {/* Wet ground Bi-LED road projection */}
-                    <div
-                      className="absolute bottom-0 left-[8%] right-0 h-[42%] mix-blend-screen opacity-90 transition-opacity duration-700"
-                      style={{
-                        background: "radial-gradient(ellipse 85% 55% at 65% 90%, rgba(56, 189, 248, 0.45) 0%, rgba(6, 182, 212, 0.22) 45%, transparent 75%)"
-                      }}
-                    />
-
-                    {/* Left Headlight Forward Light Cone */}
-                    <div
-                      className="absolute inset-0 mix-blend-screen opacity-65"
-                      style={{
-                        background: "radial-gradient(circle at 49.3% 57.8%, rgba(224, 242, 254, 0.7) 0%, rgba(56, 189, 248, 0.28) 28%, transparent 60%)",
-                        clipPath: "polygon(49.3% 57.8%, 12% 100%, 72% 100%)"
-                      }}
-                    />
-
-                    {/* Right Headlight Forward Light Cone */}
-                    <div
-                      className="absolute inset-0 mix-blend-screen opacity-75"
-                      style={{
-                        background: "radial-gradient(circle at 79% 56.3%, rgba(224, 242, 254, 0.8) 0%, rgba(56, 189, 248, 0.32) 28%, transparent 60%)",
-                        clipPath: "polygon(79% 56.3%, 45% 100%, 100% 100%)"
-                      }}
-                    />
-
                     {/* ===== Passenger Headlight (Viewer's Left: 49.3% X, 57.8% Y) ===== */}
                     {/* Ambient Housing Glow */}
                     <div
