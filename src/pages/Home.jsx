@@ -57,18 +57,18 @@ export function Home({ onOpenAdmin }) {
       <main className="flex-1">
         <Hero onOpenBooking={handleOpenBookingDirect} />
 
-        {/* 4 Service Cards matching shop signage */}
-        <ServiceStrip onOpenBooking={handleOpenBookingDirect} />
-
-        {/* Interactive Before/After Headlight Comparison */}
-        <BeforeAfter />
-
-        {/* Dynamic Product Catalog with 69 Wilayas & WhatsApp Ordering */}
+        {/* Dynamic Product Catalog with 69 Wilayas & WhatsApp Ordering (Boutique & Pièces) */}
         <Products
           onBuyProduct={handleOpenOrder}
           onSelectProductForBooking={handleOpenBookingWithProduct}
           onViewProduct={handleOpenView}
         />
+
+        {/* 4 Service Cards matching shop signage (Prestations & Expertise) */}
+        <ServiceStrip onOpenBooking={handleOpenBookingDirect} />
+
+        {/* Interactive Before/After Headlight Comparison */}
+        <BeforeAfter />
 
         {/* Portfolio & TikTok Showcase */}
         <Gallery onOpenBooking={handleOpenBookingDirect} />
