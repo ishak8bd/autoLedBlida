@@ -171,14 +171,6 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
               <span>{lang === "fr" ? "العربية" : "Français"}</span>
             </button>
 
-            {/* Book Appointment CTA */}
-            <button
-              onClick={onOpenBooking}
-              className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-brand-red to-brand-redLight hover:from-brand-redDark hover:to-brand-red text-white text-sm font-bold shadow-glow-red transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{t.hero.ctaBooking}</span>
-            </button>
 
             {/* Admin Back-Office Lock Button */}
             <button
