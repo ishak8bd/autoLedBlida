@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
-import { isValidAlgerianPhone, cleanAlgerianPhone } from "../data/algeriaWilayasCommunes";
+import { isValidAlgerianPhone, cleanAlgerianPhone, getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
 import confetti from "canvas-confetti";
 import {
   Calendar,
@@ -23,7 +23,7 @@ export function BookingModal({ isOpen, onClose, initialProduct = null }) {
 
   const services = data?.services || [];
   const settings = data?.settings || {};
-  const whatsappNumber = (settings.whatsappMain || "0561147039").replace(/\s+/g, "");
+  const primaryPhone = getPrimaryPhone(settings);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -103,8 +103,7 @@ export function BookingModal({ isOpen, onClose, initialProduct = null }) {
       ? `سلام عليكم ورشة أوتو ليد البليدة، قمت بحجز موعد عبر الموقع:\n- الاسم: ${apt.name}\n- الهاتف: ${apt.phone}\n- السيارة: ${apt.vehicle}\n- الخدمة: ${apt.service || "تجهيز إنارة"}\n- التاريخ المفضل: ${apt.preferredDate}\n${apt.message ? `- ملاحظة: ${apt.message}\n` : ""}يرجى تأكيد موعدي وساعة الحضور. شكراً.`
       : `Bonjour AutoLedBlida, j'ai enregistré mon rendez-vous sur votre site:\n- Nom: ${apt.name}\n- Téléphone: ${apt.phone}\n- Véhicule: ${apt.vehicle}\n- Prestation: ${apt.service || "Installation Phares"}\n- Date souhaitée: ${apt.preferredDate}\n${apt.message ? `- Note: ${apt.message}\n` : ""}Merci de me confirmer l'heure exacte.`;
 
-    const cleanNum = whatsappNumber.replace(/^0/, "");
-    return `https://wa.me/213${cleanNum}?text=${encodeURIComponent(msg)}`;
+    return getWhatsAppUrl(primaryPhone, msg);
   };
 
   return (

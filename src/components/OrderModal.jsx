@@ -5,7 +5,9 @@ import {
   ALGERIA_WILAYAS,
   getCommunesByWilaya,
   isValidAlgerianPhone,
-  cleanAlgerianPhone
+  cleanAlgerianPhone,
+  getPrimaryPhone,
+  getWhatsAppUrl
 } from "../data/algeriaWilayasCommunes";
 import confetti from "canvas-confetti";
 import {
@@ -30,7 +32,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   const { data, createOrder } = useData();
 
   const settings = data?.settings || {};
-  const whatsappNumber = (settings.whatsappMain || "0561147039").replace(/\s+/g, "");
+  const primaryPhone = getPrimaryPhone(settings);
 
   const [quantity, setQuantity] = useState(1);
   const [formData, setFormData] = useState({
@@ -145,8 +147,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع: ${order.total?.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
       : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Total: ${order.total?.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
 
-    const cleanNum = whatsappNumber.replace(/^0/, "");
-    return `https://wa.me/213${cleanNum}?text=${encodeURIComponent(msg)}`;
+    return getWhatsAppUrl(primaryPhone, msg);
   };
 
   return (

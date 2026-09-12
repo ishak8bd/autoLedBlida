@@ -163,7 +163,11 @@ export function DataProvider({ children }) {
         const json = await res.json();
         setData((prev) => ({
           ...prev,
-          settings: { ...prev.settings, phoneNumbers: json.phoneNumbers }
+          settings: {
+            ...prev.settings,
+            phoneNumbers: json.phoneNumbers,
+            whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
+          }
         }));
         return { success: true };
       }
@@ -174,24 +178,31 @@ export function DataProvider({ children }) {
     // Local fallback
     setData((prev) => {
       let phones = [...(prev.settings.phoneNumbers || [])];
+      const targetId = phoneData.id || ("p-" + Date.now());
       if (phoneData.id) {
         phones = phones.map((p) => (p.id === phoneData.id ? { ...p, ...phoneData } : p));
       } else {
         phones.push({
-          id: "p-" + Date.now(),
+          id: targetId,
           ...phoneData
         });
       }
       if (phoneData.isPrimary) {
         phones = phones.map((p) => ({
           ...p,
-          isPrimary: p.number === phoneData.number
+          isPrimary: p.id === targetId
         }));
-        prev.settings.whatsappMain = phoneData.number;
+      } else if (!phones.some((p) => p.isPrimary) && phones.length > 0) {
+        phones[0].isPrimary = true;
       }
+      const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
       const updated = {
         ...prev,
-        settings: { ...prev.settings, phoneNumbers: phones }
+        settings: {
+          ...prev.settings,
+          phoneNumbers: phones,
+          whatsappMain: primaryPhone ? primaryPhone.number : prev.settings?.whatsappMain
+        }
       };
       localStorage.setItem("autoled_cache", JSON.stringify(updated));
       return updated;
@@ -206,7 +217,11 @@ export function DataProvider({ children }) {
         const json = await res.json();
         setData((prev) => ({
           ...prev,
-          settings: { ...prev.settings, phoneNumbers: json.phoneNumbers }
+          settings: {
+            ...prev.settings,
+            phoneNumbers: json.phoneNumbers,
+            whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
+          }
         }));
         return { success: true };
       }
@@ -215,10 +230,18 @@ export function DataProvider({ children }) {
     }
 
     setData((prev) => {
-      const phones = (prev.settings.phoneNumbers || []).filter((p) => p.id !== id);
+      let phones = (prev.settings.phoneNumbers || []).filter((p) => p.id !== id);
+      if (phones.length > 0 && !phones.some((p) => p.isPrimary)) {
+        phones[0].isPrimary = true;
+      }
+      const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
       const updated = {
         ...prev,
-        settings: { ...prev.settings, phoneNumbers: phones }
+        settings: {
+          ...prev.settings,
+          phoneNumbers: phones,
+          whatsappMain: primaryPhone ? primaryPhone.number : prev.settings?.whatsappMain
+        }
       };
       localStorage.setItem("autoled_cache", JSON.stringify(updated));
       return updated;

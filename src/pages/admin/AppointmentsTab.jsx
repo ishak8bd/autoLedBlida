@@ -1,7 +1,8 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Search, Download, Phone, MessageSquare, Trash2 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
+import { getWhatsAppUrl } from "../../data/algeriaWilayasCommunes";
 
 export function AppointmentsTab() {
   const { t, isRtl } = useLanguage();
@@ -166,11 +167,12 @@ export function AppointmentsTab() {
                         </a>
 
                         <a
-                          href={`https://wa.me/213${apt.phone.replace(/\s+/g, "").replace(/^0/, "")}?text=${encodeURIComponent(
+                          href={getWhatsAppUrl(
+                            apt.phone,
                             isRtl
                               ? `سلام عليكم ${apt.name}، بخصوص موعدكم في ورشة أوتو ليد لسيارة ${apt.vehicle}...`
                               : `Bonjour ${apt.name}, concernant votre rendez-vous pour votre ${apt.vehicle} chez AutoLedBlida...`
-                          )}`}
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white"

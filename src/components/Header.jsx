@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
 import { LogoModal } from "./LogoModal";
+import { getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
 import {
   Phone,
   MessageSquare,
@@ -25,8 +26,9 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
   const phoneNumbers = settings.phoneNumbers || [
     { id: "p1", number: "0561147039", labelFr: "Service Client", labelAr: "خدمة الزبائن", isPrimary: true }
   ];
-  const primaryPhone = phoneNumbers.find((p) => p.isPrimary) || phoneNumbers[0];
-  const whatsappNumber = (settings.whatsappMain || primaryPhone?.number || "0561147039").replace(/\s+/g, "");
+  const primaryPhoneNumber = getPrimaryPhone(settings);
+  const primaryPhone = phoneNumbers.find((p) => p && p.isPrimary) || phoneNumbers.find((p) => p && p.number === primaryPhoneNumber) || phoneNumbers[0] || { number: primaryPhoneNumber };
+  const whatsappUrl = getWhatsAppUrl(primaryPhoneNumber);
 
   const navLinks = [
     { href: "#accueil", label: t.nav.home },
@@ -147,13 +149,13 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
               )}
             </div>
 
-            {/* Direct WhatsApp Quick Button */}
+            {/* Direct WhatsApp Quick Button (Opens Primary Phone WhatsApp) */}
             <a
-              href={`https://wa.me/213${whatsappNumber.replace(/^0/, "")}`}
+              href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm hover:shadow-emerald-600/30"
-              title="Discussion WhatsApp directe"
+              title={isRtl ? `محادثة واتساب مباشرة (${primaryPhoneNumber})` : `Discussion WhatsApp directe (${primaryPhoneNumber})`}
             >
               <MessageSquare className="w-3.5 h-3.5 fill-current" />
               <span>WhatsApp</span>
@@ -228,12 +230,24 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
             </button>
 
             <a
-              href={`tel:${primaryPhone?.number || "0561147039"}`}
+              href={`tel:${primaryPhoneNumber}`}
               className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold flex items-center justify-center gap-2 border border-zinc-700"
             >
               <Phone className="w-4 h-4 text-brand-red" />
               <span>
-                {isRtl ? "اتصل بنا :" : "Appeler :"} {primaryPhone?.number || "0561 14 70 39"}
+                {isRtl ? "اتصل بنا :" : "Appeler :"} {primaryPhoneNumber}
+              </span>
+            </a>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center justify-center gap-2 shadow-sm"
+            >
+              <MessageSquare className="w-4 h-4 fill-current" />
+              <span>
+                {isRtl ? "واتساب ورشة أوتو ليد" : "WhatsApp Principal"} ({primaryPhoneNumber})
               </span>
             </a>
           </div>

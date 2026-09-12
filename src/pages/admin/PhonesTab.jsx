@@ -1,10 +1,10 @@
-﻿import React, { useState } from "react";
-import { Phone, Plus, Edit, Trash2, XCircle, Check } from "lucide-react";
+import React, { useState } from "react";
+import { Phone, Plus, Edit, Trash2, XCircle, Check, Star } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 
 export function PhonesTab() {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const { data, savePhone, deletePhone } = useData();
 
   const [editingPhone, setEditingPhone] = useState(null);
@@ -39,22 +39,51 @@ export function PhonesTab() {
         </button>
       </div>
 
+      {/* Info notice explaining primary phone & WhatsApp connection */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-200">
+        <Star className="w-4 h-4 text-amber-400 fill-current shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold block text-white text-xs">
+            {isRtl ? "الرقم الرئيسي هو رقم الواتساب المعتمد في كل الموقع" : "Le Numéro Principal alimente tous les boutons WhatsApp du site"}
+          </span>
+          <span className="text-zinc-300 text-[11px] block mt-0.5">
+            {isRtl
+              ? "جميع أزرار الواتساب (الهيدر، الشريط السفلي للموبايل، طلب المنتجات، وتأكيد الحجز) تفتح محادثة واتساب مع الرقم المحدد كـ 'رئيسي'."
+              : "Tous les boutons WhatsApp (En-tête, Barre Mobile, Commande Produit, Prise de Rendez-vous, et Pied de page) ouvrent directement le WhatsApp du numéro désigné comme 'Principal'."}
+          </span>
+        </div>
+      </div>
+
       {/* Phones List Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {phoneNumbers.map((phone) => (
           <div
             key={phone.id || phone.number}
-            className="p-5 rounded-2xl glass-panel border border-zinc-800 hover:border-zinc-700 flex items-center justify-between gap-4 transition-colors"
+            className={`p-5 rounded-2xl glass-panel border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+              phone.isPrimary
+                ? "border-amber-400/50 bg-amber-500/5 shadow-sm"
+                : "border-zinc-800 hover:border-zinc-700"
+            }`}
           >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-lg font-black text-white">
                   {phone.number}
                 </span>
-                {phone.isPrimary && (
-                  <span className="px-2 py-0.5 rounded-full bg-brand-red/20 text-brand-redLight text-[10px] font-extrabold">
-                    {t.admin.phonesTab.isPrimary}
+                {phone.isPrimary ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[11px] font-extrabold flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-current text-amber-400" />
+                    <span>{isRtl ? "الرئيسي (واتساب نشط)" : "Principal (WhatsApp Actif)"}</span>
                   </span>
+                ) : (
+                  <button
+                    onClick={() => savePhone({ ...phone, isPrimary: true, whatsapp: true })}
+                    className="px-2 py-0.5 rounded-lg bg-zinc-800 hover:bg-amber-400/20 text-zinc-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-400/30 text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    title={isRtl ? "تعيين كرقم رئيسي للواتساب" : "Définir comme numéro principal WhatsApp"}
+                  >
+                    <Star className="w-3 h-3" />
+                    <span>{isRtl ? "تعيين كرئيسي" : "Définir Principal"}</span>
+                  </button>
                 )}
                 {phone.whatsapp && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
@@ -67,7 +96,7 @@ export function PhonesTab() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-center">
               <button
                 onClick={() => {
                   setEditingPhone({ ...phone });

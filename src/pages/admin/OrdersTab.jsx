@@ -1,7 +1,8 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Search, Download, Phone, MessageSquare, Trash2, ShoppingBag, Truck, CheckCircle2, Clock } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
+import { getWhatsAppUrl } from "../../data/algeriaWilayasCommunes";
 
 export function OrdersTab() {
   const { t, isRtl } = useLanguage();
@@ -271,11 +272,12 @@ export function OrdersTab() {
 
                           {/* WhatsApp chat */}
                           <a
-                            href={`https://wa.me/213${(o.phone || "").replace(/\s+/g, "").replace(/^0/, "")}?text=${encodeURIComponent(
+                            href={getWhatsAppUrl(
+                              o.phone,
                               isRtl
                                 ? `سلام عليكم ${o.customerName}، بخصوص طلبيتك (${o.productName}) من متجر أوتو ليد البليدة...`
                                 : `Bonjour ${o.customerName}, concernant votre commande (${o.productName}) chez AutoLedBlida...`
-                            )}`}
+                            )}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white"

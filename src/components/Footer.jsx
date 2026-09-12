@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
+import { getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
 import { LogoModal } from "./LogoModal";
 import {
   MapPin,
@@ -11,7 +12,8 @@ import {
   Lock,
   Copy,
   Check,
-  Truck
+  Truck,
+  Star
 } from "lucide-react";
 
 export function Footer({ onOpenAdmin }) {
@@ -22,6 +24,7 @@ export function Footer({ onOpenAdmin }) {
 
   const settings = data?.settings || {};
   const phoneNumbers = settings.phoneNumbers || [];
+  const primaryPhone = getPrimaryPhone(settings);
   const mapsUrl = settings.googleMapsUrl || "https://maps.app.goo.gl/H6D3GoJHLaYGHUMm8?g_st=ic";
 
   const handleCopy = (num, id) => {
@@ -89,9 +92,17 @@ export function Footer({ onOpenAdmin }) {
                   className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-2 text-xs hover:border-zinc-700 transition-colors"
                 >
                   <div className="flex flex-col">
-                    <span className="font-mono font-bold text-white text-sm">
-                      {p.number}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-white text-sm">
+                        {p.number}
+                      </span>
+                      {p.isPrimary && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 text-[10px] font-bold flex items-center gap-0.5">
+                          <Star className="w-2.5 h-2.5 fill-current" />
+                          {isRtl ? "الرئيسي" : "Principal"}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[11px] text-zinc-400">
                       {isRtl ? p.labelAr || "خدمة الزبائن" : p.labelFr || "Service Client"}
                     </span>
@@ -108,7 +119,7 @@ export function Footer({ onOpenAdmin }) {
 
                     {p.whatsapp && (
                       <a
-                        href={`https://wa.me/213${p.number.replace(/\s+/g, "").replace(/^0/, "")}`}
+                        href={getWhatsAppUrl(p.number)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white"
@@ -183,6 +194,16 @@ export function Footer({ onOpenAdmin }) {
                 {t.footer.socialNetworks}
               </span>
               <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={getWhatsAppUrl(primaryPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-500/50 text-xs font-bold text-white transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                  title="WhatsApp Principal"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                  <span>WhatsApp ({primaryPhone})</span>
+                </a>
                 <a
                   href="https://www.tiktok.com/@auto.led.blida"
                   target="_blank"

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
-import { ALGERIA_WILAYAS } from "../i18n/translations";
+import { ALGERIA_WILAYAS, getPrimaryPhone, getWhatsAppUrl } from "../data/algeriaWilayasCommunes";
 import {
   ShoppingBag,
   Search,
@@ -27,7 +27,7 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
   const categories = data?.categories || [];
   const products = data?.products || [];
   const settings = data?.settings || {};
-  const whatsappNumber = (settings.whatsappMain || "0561147039").replace(/\s+/g, "");
+  const primaryPhone = getPrimaryPhone(settings);
 
   // Filter products by category and search
   const filteredProducts = products.filter((p) => {
@@ -37,15 +37,14 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
     return matchesCat && matchesSearch;
   });
 
-  // Generate WhatsApp order URL
-  const getWhatsAppUrl = (product) => {
+  // Generate WhatsApp order URL using principal phone number
+  const getProductWhatsAppUrl = (product) => {
     const wilayaText = selectedWilaya ? ` (Wilaya: ${selectedWilaya})` : "";
     const message = isRtl
       ? `سلام عليكم، أود طلب وشراء هذا المنتج من أوتو ليد البليدة:\n- المنتج: ${product.nameAr || product.nameFr}\n- السعر: ${product.price?.toLocaleString()} د.ج${wilayaText}\nهل متوفر التوصيل؟ شكراً.`
       : `Bonjour AutoLedBlida, je souhaite commander ce produit:\n- Produit: ${product.nameFr}\n- Prix: ${product.price?.toLocaleString()} DZD${wilayaText}\nEst-il disponible en stock / livraison ? Merci.`;
 
-    const cleanNum = whatsappNumber.replace(/^0/, "");
-    return `https://wa.me/213${cleanNum}?text=${encodeURIComponent(message)}`;
+    return getWhatsAppUrl(primaryPhone, message);
   };
 
   return (

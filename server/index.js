@@ -190,17 +190,19 @@ app.post("/api/admin/phones", (req, res) => {
   if (!data) return res.status(500).json({ error: "Database error" });
 
   let phones = data.settings.phoneNumbers || [];
+  const cleanNum = String(number).trim();
+  const targetId = id || ("p-" + Date.now());
 
   if (id) {
     // Edit
     phones = phones.map((p) =>
-      p.id === id ? { ...p, number, labelFr, labelAr, isPrimary, whatsapp } : p
+      p.id === id ? { ...p, number: cleanNum, labelFr, labelAr, isPrimary: Boolean(isPrimary), whatsapp: Boolean(whatsapp) } : p
     );
   } else {
     // Add
     const newPhone = {
-      id: "p-" + Date.now(),
-      number: number.trim(),
+      id: targetId,
+      number: cleanNum,
       labelFr: labelFr || "Numéro",
       labelAr: labelAr || "رقم اتصال",
       isPrimary: Boolean(isPrimary),
@@ -209,28 +211,46 @@ app.post("/api/admin/phones", (req, res) => {
     phones.push(newPhone);
   }
 
+  // If this phone is set as primary, ensure it is the ONLY primary and update whatsappMain
   if (isPrimary) {
     phones = phones.map((p) => ({
       ...p,
-      isPrimary: p.number === number
+      isPrimary: p.id === targetId
     }));
-    data.settings.whatsappMain = number;
+    data.settings.whatsappMain = cleanNum;
+  } else if (!phones.some((p) => p.isPrimary) && phones.length > 0) {
+    // Ensure at least one phone is always marked as primary
+    phones[0].isPrimary = true;
+    data.settings.whatsappMain = phones[0].number;
+  }
+
+  const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
+  if (primaryPhone) {
+    data.settings.whatsappMain = primaryPhone.number;
   }
 
   data.settings.phoneNumbers = phones;
   writeData(data);
-  res.json({ success: true, phoneNumbers: phones });
+  res.json({ success: true, phoneNumbers: phones, whatsappMain: data.settings.whatsappMain });
 });
 
 app.delete("/api/admin/phones/:id", (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
-  data.settings.phoneNumbers = (data.settings.phoneNumbers || []).filter(
+  let phones = (data.settings.phoneNumbers || []).filter(
     (p) => p.id !== req.params.id
   );
+  if (phones.length > 0 && !phones.some((p) => p.isPrimary)) {
+    phones[0].isPrimary = true;
+  }
+  const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
+  if (primaryPhone) {
+    data.settings.whatsappMain = primaryPhone.number;
+  }
+  data.settings.phoneNumbers = phones;
   writeData(data);
-  res.json({ success: true, phoneNumbers: data.settings.phoneNumbers });
+  res.json({ success: true, phoneNumbers: data.settings.phoneNumbers, whatsappMain: data.settings.whatsappMain });
 });
 
 // 7. Admin: Product CRUD
