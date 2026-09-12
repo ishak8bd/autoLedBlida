@@ -138,8 +138,48 @@ export function OrdersTab() {
     return matchesStatus && matchesQuery;
   });
 
+  // Rank orders:
+  // 1. "nouveau" status at the top
+  // 2. Among "nouveau": ranked according to order date (createdAt) ascending -> older at top (FIFO)
+  // 3. For other statuses: active first (confirme -> expedie -> livre -> annule), then older at top
+  const STATUS_PRIORITY = {
+    nouveau: 0,
+    confirme: 1,
+    expedie: 2,
+    livre: 3,
+    annule: 4
+  };
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const isNewA = (a.status || "nouveau") === "nouveau";
+    const isNewB = (b.status || "nouveau") === "nouveau";
+
+    // 1. Les nouvelles commandes on top
+    if (isNewA && !isNewB) return -1;
+    if (!isNewA && isNewB) return 1;
+
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+    // 2. Si les deux sont "nouveau" : classées selon date de commande, plus ancienne en haut (older at top)
+    if (isNewA && isNewB) {
+      if (timeA !== timeB) return timeA - timeB; // smaller timestamp = older date = top
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    }
+
+    // 3. Pour les autres statuts (non-nouveau) :
+    const prioA = STATUS_PRIORITY[a.status] !== undefined ? STATUS_PRIORITY[a.status] : 99;
+    const prioB = STATUS_PRIORITY[b.status] !== undefined ? STATUS_PRIORITY[b.status] : 99;
+
+    if (prioA !== prioB) return prioA - prioB;
+
+    // Au sein du même statut, plus ancienne en haut
+    if (timeA !== timeB) return timeA - timeB;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+
   const exportCsv = () => {
-    if (!orders.length) return;
+    if (!sortedOrders.length) return;
     const headers = [
       "ID Commande",
       "Date",
@@ -157,7 +197,7 @@ export function OrdersTab() {
       "Statut"
     ];
 
-    const rows = orders.map((o) => {
+    const rows = sortedOrders.map((o) => {
       const summary = getOrderProductsSummary(o);
       const prodStr = summary.isMulti
         ? `${summary.totalQty} articles:\n` + summary.items.map((it) => `• ${it.name} (x${it.quantity})`).join("\n")
@@ -331,8 +371,8 @@ export function OrdersTab() {
           </h3>
           <p className="text-xs text-zinc-400">
             {isRtl
-              ? "متابعة وتعديل وإضافة وحذف طلبيات التوصيل للـ 69 ولاية"
-              : "Suivi, modification, ajout et suppression des commandes d'expédition (69 wilayas)."}
+              ? "الطلبيات الجديدة في الأعلى، مرتبة حسب تاريخ الطلب (الأقدم أولاً لتسهيل المعالجة)."
+              : "Nouvelles commandes en tête, classées par date de commande (les plus anciennes en premier)."}
           </p>
         </div>
 
@@ -401,13 +441,13 @@ export function OrdersTab() {
 
       {/* MOBILE VIEW: Cards (visible on phones, hidden on desktop) */}
       <div className="block md:hidden space-y-3">
-        {filteredOrders.length === 0 ? (
+        {sortedOrders.length === 0 ? (
           <div className="text-center py-12 text-zinc-500 glass-panel rounded-2xl border border-zinc-800 p-6">
             <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-zinc-600 opacity-50" />
             <div>{t.admin.ordersTab.noData}</div>
           </div>
         ) : (
-          filteredOrders.map((o) => {
+          sortedOrders.map((o) => {
             const dateStr = o.createdAt
               ? new Date(o.createdAt).toLocaleDateString("fr-FR", {
                   day: "2-digit",
@@ -602,7 +642,7 @@ export function OrdersTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
-              {filteredOrders.length === 0 ? (
+              {sortedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-zinc-500">
                     <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-zinc-600 opacity-50" />
@@ -610,7 +650,7 @@ export function OrdersTab() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((o) => {
+                sortedOrders.map((o) => {
                   const dateStr = o.createdAt
                     ? new Date(o.createdAt).toLocaleDateString("fr-FR", {
                         day: "2-digit",
