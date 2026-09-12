@@ -51,10 +51,6 @@ export function Hero({ onOpenBooking }) {
                 <Flame className="w-3.5 h-3.5" />
                 {t.hero.badge}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-semibold">
-                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                {isRtl ? "توصيل 69 ولاية" : "Livraison 69 Wilayas"}
-              </span>
             </div>
 
             {/* Main Headline */}

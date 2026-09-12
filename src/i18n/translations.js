@@ -112,6 +112,8 @@ export const translations = {
         totalPrice: "Total de la commande",
         totalToPay: "Total à payer",
         paymentInfo: "Paiement à la livraison (Cash on Delivery)",
+        addToCart: "Ajouter au panier",
+        addedToCart: "Produit ajouté au panier !",
         submitBtn: "Confirmer la commande",
         submitting: "Validation de votre commande...",
         whatsappOption: "Transmettre aussi ma commande sur WhatsApp"
@@ -457,6 +459,8 @@ export const translations = {
         totalPrice: "المجموع الإجمالي",
         totalToPay: "المجموع الكلي للدفع",
         paymentInfo: "الدفع نقداً عند الاستلام (يد بيد)",
+        addToCart: "إضافة إلى السلة",
+        addedToCart: "تمت الإضافة إلى السلة بنجاح !",
         submitBtn: "تأكيد الطلب الآن",
         submitting: "جاري تأكيد الطلب...",
         whatsappOption: "إرسال نسخة من طلبيتي عبر الواتساب فوراً"

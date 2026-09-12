@@ -119,7 +119,7 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
                   <div className="px-3 py-2 text-xs font-bold uppercase text-zinc-400 border-b border-zinc-800 flex items-center justify-between">
                     <span>{isRtl ? "أرقام ورشة أوتو ليد" : "Nos Numéros de Contact"}</span>
                     <span className="text-[10px] text-emerald-400 font-normal">
-                      {isRtl ? "توصيل 69 ولاية" : "Livraison 69W"}
+                      {isRtl ? "خدمة التوصيل متوفرة" : "Livraison disponible"}
                     </span>
                   </div>
                   <div className="py-1 space-y-1">

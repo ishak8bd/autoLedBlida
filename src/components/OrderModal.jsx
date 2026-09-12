@@ -26,7 +26,8 @@ import {
   Minus,
   ShieldCheck,
   Home,
-  Building2
+  Building2,
+  ShoppingCart
 } from "lucide-react";
 
 export function OrderModal({ isOpen, onClose, product = null }) {
@@ -38,6 +39,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
 
   const [quantity, setQuantity] = useState(1);
   const [deliveryType, setDeliveryType] = useState("home"); // "home" | "desk"
+  const [addedToCart, setAddedToCart] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -61,6 +63,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     if (isOpen) {
       setQuantity(1);
       setDeliveryType("home");
+      setAddedToCart(false);
       setSuccessOrder(null);
       setErrorMsg("");
       setPhoneTouched(false);
@@ -84,6 +87,58 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       wilaya: val,
       commune: "" // Reset commune when wilaya changes
     }));
+  };
+
+  const handleAddToCart = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      const existingCart = JSON.parse(localStorage.getItem("autoled_cart") || "[]");
+      const existingIndex = existingCart.findIndex(
+        (item) => item.productId === product.id && item.deliveryType === deliveryType
+      );
+
+      const itemToAdd = {
+        id: product.id + "-" + Date.now(),
+        productId: product.id,
+        nameFr: product.nameFr,
+        nameAr: product.nameAr,
+        price: unitPrice,
+        image: product.image || "/biled-lens.jpg",
+        quantity: quantity,
+        wilaya: formData.wilaya,
+        commune: formData.commune,
+        deliveryType: deliveryType,
+        deliveryFee: currentDeliveryFee,
+        vehicleNote: formData.vehicleNote,
+        addedAt: Date.now()
+      };
+
+      if (existingIndex > -1) {
+        existingCart[existingIndex].quantity += quantity;
+        if (formData.wilaya) existingCart[existingIndex].wilaya = formData.wilaya;
+        if (formData.commune) existingCart[existingIndex].commune = formData.commune;
+      } else {
+        existingCart.push(itemToAdd);
+      }
+
+      localStorage.setItem("autoled_cart", JSON.stringify(existingCart));
+      window.dispatchEvent(new Event("cartUpdated"));
+
+      setAddedToCart(true);
+      try {
+        confetti({
+          particleCount: 45,
+          spread: 55,
+          origin: { y: 0.7 }
+        });
+      } catch (err) {}
+
+      setTimeout(() => {
+        setAddedToCart(false);
+      }, 3000);
+    } catch (err) {
+      console.error("Failed to add to cart:", err);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -623,6 +678,29 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                   </div>
                 </div>
               </div>
+
+              {/* Add to Cart Button */}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className={`w-full py-3.5 rounded-2xl border font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-sm ${
+                  addedToCart
+                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-300"
+                    : "bg-zinc-900 hover:bg-zinc-800 border-zinc-700 hover:border-zinc-500 text-zinc-100 hover:text-white active:scale-[0.99]"
+                }`}
+              >
+                {addedToCart ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-400 animate-bounce" />
+                    <span>{t.order.form.addedToCart || (isRtl ? "تمت الإضافة إلى السلة بنجاح !" : "Produit ajouté au panier !")}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-4 h-4 text-amber-400" />
+                    <span>{t.order.form.addToCart || (isRtl ? "إضافة إلى السلة" : "Ajouter au panier")}</span>
+                  </>
+                )}
+              </button>
 
               {/* Submit Button */}
               <button
