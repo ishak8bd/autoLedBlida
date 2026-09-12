@@ -1,0 +1,287 @@
+{
+  "settings": {
+    "adminPin": "1234",
+    "storeName": "AutoLedBlida",
+    "city": "Ouled Yaïch, Blida",
+    "cityAr": "أولاد يعيش، البليدة",
+    "address": "Route Principale, Ouled Yaïch, Blida, Algérie",
+    "addressAr": "الطريق الرئيسي، أولاد يعيش، ولاية البليدة، الجزائر",
+    "taglineFr": "Expert en éclairage & équipement automobile",
+    "taglineAr": "خبراء في إنارة وتجهيز السيارات",
+    "subtaglineFr": "Spécialiste Ampoules LED Haute Puissance, Xénon & Projecteurs Bi-LED Retrofit à Blida",
+    "subtaglineAr": "متخصصون في لمبات الليد فائقة القوة، الزينون وتركيب عدسات البي ليد في البليدة",
+    "deliveryWilayas": 69,
+    "whatsappMain": "0561147039",
+    "phoneNumbers": [
+      {
+        "id": "p1",
+        "number": "0561147039",
+        "labelFr": "Service Client (Nouveau)",
+        "labelAr": "خدمة العملاء (الرقم الجديد)",
+        "isPrimary": true,
+        "whatsapp": true
+      },
+      {
+        "id": "p2",
+        "number": "0549804396",
+        "labelFr": "Commercial & Commandes",
+        "labelAr": "المبيعات والطلبات",
+        "isPrimary": false,
+        "whatsapp": true
+      },
+      {
+        "id": "p3",
+        "number": "0558361365",
+        "labelFr": "Conseil Technique & RDV",
+        "labelAr": "الاستفسار التقني والمواعيد",
+        "isPrimary": false,
+        "whatsapp": true
+      },
+      {
+        "id": "p4",
+        "number": "0541960474",
+        "labelFr": "Support & Expédition",
+        "labelAr": "الدعم والشحن",
+        "isPrimary": false,
+        "whatsapp": true
+      }
+    ],
+    "googleMapsUrl": "https://maps.app.goo.gl/H6D3GoJHLaYGHUMm8?g_st=ic",
+    "socials": {
+      "tiktok": "https://www.tiktok.com/@auto.led.blida",
+      "instagram": "https://www.instagram.com/autoledblida",
+      "facebook": "https://facebook.com/autoledblida"
+    },
+    "openingHoursFr": "Samedi - Jeudi : 09h00 - 19h00 | Vendredi : Fermé",
+    "openingHoursAr": "السبت - الخميس : 09:00 - 19:00 | الجمعة : عطلة",
+    "holidayBanner": {
+      "enabled": true,
+      "titleFr": "Livraison 69 Wilayas & Atelier Ouvert",
+      "titleAr": "توصيل متوفر لـ 69 ولاية والورشة في خدمتكم",
+      "messageFr": "Livraison rapide dans les 69 wilayas d'Algérie ! Pour vos installations et réglages optiques à Ouled Yaïch, réservez votre rendez-vous en ligne.",
+      "messageAr": "توصيل سريع ومتوفر لكافة الـ 69 ولاية! لتركيب وتعديل إنارة سيارتكم في ورشتنا بأولاد يعيش، احجزوا موعدكم مباشرة عبر الموقع.",
+      "badgeFr": "69 Wilayas",
+      "badgeAr": "69 ولاية"
+    }
+  },
+  "categories": [
+    {
+      "id": "bi-led",
+      "nameFr": "Projecteurs Bi-LED",
+      "nameAr": "عدسات بي ليد",
+      "count": 2
+    },
+    {
+      "id": "led-bulbs",
+      "nameFr": "Ampoules LED",
+      "nameAr": "مصابيح ليد",
+      "count": 3
+    },
+    {
+      "id": "xenon",
+      "nameFr": "Kits Xénon",
+      "nameAr": "أطقم زينون",
+      "count": 1
+    },
+    {
+      "id": "accessories",
+      "nameFr": "Accessoires & Relais",
+      "nameAr": "إكسسوارات وضفائر",
+      "count": 2
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-1",
+      "nameFr": "Projecteurs Bi-LED AOZOOM AZ-33 3\" AXE 2024",
+      "nameAr": "عدسات بي ليد أوزوم AOZOOM AZ-33 قياس 3 إنش",
+      "price": 28500,
+      "category": "bi-led",
+      "inStock": true,
+      "badgeFr": "Best-Seller",
+      "badgeAr": "الأكثر طلباً",
+      "image": "/uploads/images__1__1789171488550.jpg",
+      "descriptionFr": "Projecteurs Bi-LED nouvelle génération 2024 avec faisceau laser ultra concentré, lentille HD bleue et coupure nette anti-éblouissement. Compatible avec la majorité des optiques.",
+      "descriptionAr": "الجيل الجديد 2024 من عدسات البي ليد مع شعاع ليزري فائق الدقة، عدسة زرقاء عالية النقاء وخط قطع مستقيم يمنع إبهار السائقين الآخرين."
+    },
+    {
+      "id": "prod-2",
+      "nameFr": "Ampoules LED GPNE R1 60W 12000LM Canbus",
+      "nameAr": "مصابيح ليد GPNE R1 بقوة 60 واط و 12000 لومن",
+      "price": 8500,
+      "category": "led-bulbs",
+      "inStock": true,
+      "badgeFr": "Haut de Gamme",
+      "badgeAr": "جودة ممتازة",
+      "image": "/uploads/images_1789171382815.jpg",
+      "descriptionFr": "Puce CSP Coréenne haute puissance, tube en cuivre sous vide pour refroidissement optimal. Aucun code d'erreur au tableau de bord (Canbus Pro). Disponibles en H7, H4, H1, H11, 9005.",
+      "descriptionAr": "شرائح كورية فائقة القوة مع أنبوب نحاسي مفرغ لتبريد استثنائي. نظام كانباص متطور يمنع ظهور الأخطاء في لوحة القيادة. متوفر بجميع المقاسات."
+    },
+    {
+      "id": "prod-3",
+      "nameFr": "Kit Bi-LED Mini H7 / H4 Projector Lens",
+      "nameAr": "ميني عدسات بي ليد تركب مباشرة بدون فتح الفانوس",
+      "price": 14000,
+      "category": "bi-led",
+      "inStock": true,
+      "badgeFr": "Plug & Play",
+      "badgeAr": "تركيب مباشر",
+      "image": "/uploads/images__2__1789171569395.jpg",
+      "descriptionFr": "Lentille projecteur Bi-LED compacte qui se monte directement dans l'emplacement d'origine sans ouvrir le phare. Éclairage double (croisement + route) net et puissant.",
+      "descriptionAr": "عدسة بي ليد مدمجة تركب في المكان الأصلي للمصباح مباشرة دون الحاجة لفتح زجاج الفانوس. إنارة مزدوجة (كود وفار) فائقة الوضوح."
+    },
+    {
+      "id": "prod-4",
+      "nameFr": "Kit Xénon Fast Bright 55W Canbus 6000K",
+      "nameAr": "طقم زينون فاست برايت 55 واط سريع الاشتعال 6000K",
+      "price": 9500,
+      "category": "xenon",
+      "inStock": true,
+      "badgeFr": "Éclairage Pur",
+      "badgeAr": "أبيض نقي",
+      "image": "/xenon-kit.jpg",
+      "descriptionFr": "Ballasts métalliques slim nouvelle technologie à allumage instantané (Fast Start). Ampoules quartz anti-UV 6000K blanc diamant.",
+      "descriptionAr": "محولات معدنية نحيفة سريعة الاشتعال مع لمبات كوارتز مقاومة للحرارة والأشعة فوق البنفسجية بلون أبيض ناصع 6000 كلفن."
+    },
+    {
+      "id": "prod-5",
+      "nameFr": "Ampoules LED Canbus Anti-Erreur Sans Ventilateur",
+      "nameAr": "مصابيح ليد مضادة للخطأ مدمجة بدون مروحة",
+      "price": 6500,
+      "category": "led-bulbs",
+      "inStock": true,
+      "badgeFr": "Silencieux",
+      "badgeAr": "صامت وعملي",
+      "image": "/uploads/71vf-hjzbvl_1789171673909.jpg",
+      "descriptionFr": "Design 1:1 identique aux ampoules halogènes d'origine. Corps en aluminium aéronautique avec dissipation thermique passive.",
+      "descriptionAr": "تصميم مطابق تماماً للمصابيح الأصلية لمقاس 1:1. هيكل ألومنيوم طيران لتشتيت الحرارة بكفاءة وعمر افتراضي طويل."
+    },
+    {
+      "id": "prod-6",
+      "nameFr": "Pack Anneaux Angel Eyes LED RGB + Switchback",
+      "nameAr": "حلقات أنجل آيز بي إم دبليو RGB مع إشارة متتابعة",
+      "price": 11000,
+      "category": "accessories",
+      "inStock": false,
+      "badgeFr": "Personnalisation",
+      "badgeAr": "تعديل خاص",
+      "image": "/angel-eyes.jpg",
+      "descriptionFr": "Anneaux circulaires style BMW avec contrôle via Bluetooth smartphone ou télécommande. Mode clignotant défilant dynamique orange.",
+      "descriptionAr": "حلقات دائرية على طراز بي إم دبليو يتم التحكم بألوانها عبر تطبيق البلوتوث بالهاتف، مع ميزة الإشارة المتتابعة الديناميكية."
+    }
+  ],
+  "appointments": [
+    {
+      "id": "apt-1789168369061",
+      "name": "Yacine Belkacem",
+      "phone": "0555112233",
+      "vehicle": "Peugeot 208 GT",
+      "service": "Projecteurs Bi-LED",
+      "preferredDate": "2026-09-18",
+      "message": "Installation lentilles et r�glage optique",
+      "status": "nouveau",
+      "createdAt": "2026-09-11T23:12:49.061Z"
+    },
+    {
+      "id": "apt-101",
+      "name": "Karim Bouzid",
+      "phone": "0550123456",
+      "vehicle": "Seat Leon Cupra (2020)",
+      "service": "Installation Projecteurs Bi-LED",
+      "serviceId": "retro-biled",
+      "preferredDate": "2026-09-14",
+      "message": "Je veux le pack AOZOOM AZ-33 avec réglage de hauteur.",
+      "status": "confirme",
+      "createdAt": "2026-09-11T14:30:00.000Z"
+    },
+    {
+      "id": "apt-102",
+      "name": "Amine Ziani",
+      "phone": "0661987654",
+      "vehicle": "Renault Fluence (2015)",
+      "service": "Changement Ampoules LED",
+      "serviceId": "led-upgrade",
+      "preferredDate": "2026-09-15",
+      "message": "Installation feux de croisement et antibrouillard.",
+      "status": "nouveau",
+      "createdAt": "2026-09-11T18:15:00.000Z"
+    },
+    {
+      "id": "apt-103",
+      "name": "Sofiane Djebbar",
+      "phone": "0770554433",
+      "vehicle": "Golf 7 R-Line",
+      "service": "Diagnostic & Rénovation Optique",
+      "serviceId": "optic-polish",
+      "preferredDate": "2026-09-16",
+      "message": "Faisceau mal réglé, besoin d'alignement au banc.",
+      "status": "nouveau",
+      "createdAt": "2026-09-11T21:00:00.000Z"
+    }
+  ],
+  "services": [
+    {
+      "id": "retro-biled",
+      "nameFr": "Installation Projecteurs Bi-LED Retrofit",
+      "nameAr": "تركيب وتعديل عدسات بي ليد ريتروفيت",
+      "icon": "Zap"
+    },
+    {
+      "id": "led-upgrade",
+      "nameFr": "Ampoules LED Haute Puissance (Croisement/Route)",
+      "nameAr": "ترقية مصابيح ليد عالية القوة (كود وفار)",
+      "icon": "Sun"
+    },
+    {
+      "id": "xenon-install",
+      "nameFr": "Installation Kit Xénon Canbus",
+      "nameAr": "تركيب طقم زينون أصلي كانباص",
+      "icon": "ShieldCheck"
+    },
+    {
+      "id": "optic-polish",
+      "nameFr": "Rénovation Phares & Réglage Faisceau",
+      "nameAr": "تلميع الفوانيس وضبط خط الإنارة",
+      "icon": "Sparkles"
+    },
+    {
+      "id": "diagnostic",
+      "nameFr": "Diagnostic Électrique & Faisceaux",
+      "nameAr": "فحص الأعطال الكهربائية والضفائر",
+      "icon": "Wrench"
+    }
+  ],
+  "orders": [
+    {
+      "id": "cmd-1789172225133",
+      "customerName": "Walid Dahmani",
+      "phone": "0560998877",
+      "wilaya": "31 - Oran",
+      "commune": "Es Senia, Oran",
+      "quantity": 2,
+      "vehicleNote": "Seat Leon FR 2020",
+      "productId": "prod-1",
+      "productName": "Projecteurs Bi-LED AOZOOM AZ-33 3\" AXE 2024",
+      "productImage": "/biled-lens.jpg",
+      "productPrice": 28500,
+      "total": 57000,
+      "status": "confirme",
+      "createdAt": "2026-09-12T00:17:05.133Z"
+    },
+    {
+      "id": "cmd-1789170000000",
+      "customerName": "Mohamed Cherif",
+      "phone": "0550123456",
+      "wilaya": "16 - Alger",
+      "commune": "Kouba, Alger",
+      "quantity": 1,
+      "vehicleNote": "Golf 7 2018 - feux H7",
+      "productId": "prod-2",
+      "productName": "Ampoules LED GPNE R1 60W 12000LM Canbus",
+      "productPrice": 8500,
+      "total": 8500,
+      "status": "nouveau",
+      "createdAt": "2026-09-11T22:30:00.000Z"
+    }
+  ]
+}

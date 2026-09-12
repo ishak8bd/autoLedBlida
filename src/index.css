@@ -1,0 +1,100 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #09090c;
+    color: #f1f5f9;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  [dir="rtl"] {
+    font-family: "Cairo", "Tajawal", system-ui, sans-serif;
+  }
+
+  [dir="ltr"] {
+    font-family: "Outfit", system-ui, sans-serif;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0d12;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a38;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e60026;
+}
+
+/* Glow effects */
+.text-glow-red {
+  text-shadow: 0 0 15px rgba(230, 0, 38, 0.7);
+}
+
+.text-glow-blue {
+  text-shadow: 0 0 15px rgba(56, 189, 248, 0.7);
+}
+
+.box-glow-red {
+  box-shadow: 0 0 35px -5px rgba(230, 0, 38, 0.45);
+}
+
+.box-glow-subtle {
+  box-shadow: 0 4px 25px -3px rgba(0, 0, 0, 0.6), 0 0 15px -3px rgba(230, 0, 38, 0.15);
+}
+
+/* Glassmorphism */
+.glass-panel {
+  background: rgba(18, 18, 23, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-nav {
+  background: rgba(9, 9, 12, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Automotive headlight cone beam effect */
+.headlight-cone-left {
+  background: radial-gradient(ellipse at 50% 0%, rgba(180, 235, 255, 0.85) 0%, rgba(56, 189, 248, 0.3) 40%, rgba(230, 0, 38, 0.05) 70%, transparent 100%);
+  filter: blur(10px);
+}
+
+.headlight-cone-right {
+  background: radial-gradient(ellipse at 50% 0%, rgba(180, 235, 255, 0.85) 0%, rgba(56, 189, 248, 0.3) 40%, rgba(230, 0, 38, 0.05) 70%, transparent 100%);
+  filter: blur(10px);
+}
+
+/* Range input slider styling */
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e60026;
+  cursor: ew-resize;
+  box-shadow: 0 0 15px rgba(230, 0, 38, 0.8);
+  border: 2px solid white;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e60026;
+  cursor: ew-resize;
+  box-shadow: 0 0 15px rgba(230, 0, 38, 0.8);
+  border: 2px solid white;
+}
