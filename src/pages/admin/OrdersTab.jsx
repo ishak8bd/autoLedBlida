@@ -808,362 +808,378 @@ export function OrdersTab() {
 
       {/* ADD / EDIT ORDER MODAL */}
       {showOrderModal && editingOrder && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h4 className="text-base font-bold text-white flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-brand-red" />
-                <span>
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-hidden"
+          onClick={() => {
+            setShowOrderModal(false);
+            setEditingOrder(null);
+          }}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header (Fixed at top) */}
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3.5 sm:px-6 sm:py-4 shrink-0 bg-zinc-900 z-10">
+              <h4 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-brand-red shrink-0" />
+                <span className="truncate">
                   {editingOrder.id
                     ? t.admin.ordersTab.editTitle || (isRtl ? "تعديل الطلبية" : "Modifier la Commande")
                     : t.admin.ordersTab.addTitle || (isRtl ? "إضافة طلبية جديدة" : "Créer une Commande")}
                 </span>
               </h4>
               <button
+                type="button"
                 onClick={() => {
                   setShowOrderModal(false);
                   setEditingOrder(null);
                 }}
-                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+                className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+                aria-label="Fermer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {formError && (
-              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
+            {/* Form wrapping scrollable content and pinned footer */}
+            <form onSubmit={handleSaveOrder} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Form Body */}
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 space-y-3.5 text-xs sm:text-sm">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
 
-            <form onSubmit={handleSaveOrder} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Client Name */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "اسم الزبون *" : "Nom du client *"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingOrder.customerName}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, customerName: e.target.value })}
-                    placeholder="Ex: Mohamed Amine"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "رقم الهاتف *" : "Téléphone *"}
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={editingOrder.phone}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, phone: e.target.value })}
-                    placeholder="0555 12 34 56"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Wilaya (1 to 69) */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "الولاية *" : "Wilaya de livraison *"}
-                  </label>
-                  <select
-                    value={editingOrder.wilaya}
-                    onChange={(e) => {
-                      const newWilaya = e.target.value;
-                      const communes = getCommunesByWilaya(newWilaya);
-                      const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(newWilaya) : { home: 500, desk: 300 };
-                      const curType = editingOrder.deliveryType || "home";
-                      const newFee = curType === "desk" ? (feeObj.desk || 0) : (feeObj.home || 0);
-                      const qty = Number(editingOrder.quantity) || 1;
-                      const price = Number(editingOrder.productPrice) || 0;
-                      setEditingOrder({
-                        ...editingOrder,
-                        wilaya: newWilaya,
-                        commune: communes[0] || "",
-                        deliveryFee: newFee,
-                        total: (price * qty) + newFee
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                  >
-                    {ALGERIA_WILAYAS.map((w) => (
-                      <option key={w} value={w}>{w}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Commune */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "البلدية أو العنوان" : "Commune / Adresse"}
-                  </label>
-                  {currentCommunes.length > 0 ? (
-                    <select
-                      value={editingOrder.commune}
-                      onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                    >
-                      <option value="">Sélectionner la commune</option>
-                      {currentCommunes.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Client Name */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "اسم الزبون *" : "Nom du client *"}
+                    </label>
                     <input
                       type="text"
-                      value={editingOrder.commune}
-                      onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
-                      placeholder="Commune / Adresse"
-                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                      required
+                      value={editingOrder.customerName}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, customerName: e.target.value })}
+                      placeholder="Ex: Mohamed Amine"
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-sm"
                     />
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              {/* Delivery Mode & Delivery Fee */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "طريقة التوصيل" : "Mode de livraison"}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
-                        const newFee = feeObj.home || 0;
-                        const qty = Number(editingOrder.quantity) || 1;
-                        const price = Number(editingOrder.productPrice) || 0;
-                        setEditingOrder({
-                          ...editingOrder,
-                          deliveryType: "home",
-                          deliveryFee: newFee,
-                          total: (price * qty) + newFee
-                        });
-                      }}
-                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        (editingOrder.deliveryType || "home") === "home"
-                          ? "bg-brand-red/20 border-brand-red text-white"
-                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      <Home className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{isRtl ? "منزل" : "Maison"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
-                        const newFee = feeObj.desk || 0;
-                        const qty = Number(editingOrder.quantity) || 1;
-                        const price = Number(editingOrder.productPrice) || 0;
-                        setEditingOrder({
-                          ...editingOrder,
-                          deliveryType: "desk",
-                          deliveryFee: newFee,
-                          total: (price * qty) + newFee
-                        });
-                      }}
-                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        editingOrder.deliveryType === "desk"
-                          ? "bg-brand-red/20 border-brand-red text-white"
-                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      <Building2 className="w-3.5 h-3.5 text-sky-400" />
-                      <span>{isRtl ? "مكتب" : "Bureau (Stop Desk)"}</span>
-                    </button>
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "رقم الهاتف *" : "Téléphone *"}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={editingOrder.phone}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, phone: e.target.value })}
+                      placeholder="0555 12 34 56"
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red text-sm"
+                    />
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Wilaya (1 to 69) */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "الولاية *" : "Wilaya de livraison *"}
+                    </label>
+                    <select
+                      value={editingOrder.wilaya}
+                      onChange={(e) => {
+                        const newWilaya = e.target.value;
+                        const communes = getCommunesByWilaya(newWilaya);
+                        const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(newWilaya) : { home: 500, desk: 300 };
+                        const curType = editingOrder.deliveryType || "home";
+                        const newFee = curType === "desk" ? (feeObj.desk || 0) : (feeObj.home || 0);
+                        const qty = Number(editingOrder.quantity) || 1;
+                        const price = Number(editingOrder.productPrice) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          wilaya: newWilaya,
+                          commune: communes[0] || "",
+                          deliveryFee: newFee,
+                          total: (price * qty) + newFee
+                        });
+                      }}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-sm"
+                    >
+                      {ALGERIA_WILAYAS.map((w) => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Commune */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "البلدية أو العنوان" : "Commune / Adresse"}
+                    </label>
+                    {currentCommunes.length > 0 ? (
+                      <select
+                        value={editingOrder.commune}
+                        onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
+                        className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-sm"
+                      >
+                        <option value="">Sélectionner la commune</option>
+                        {currentCommunes.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={editingOrder.commune}
+                        onChange={(e) => setEditingOrder({ ...editingOrder, commune: e.target.value })}
+                        placeholder="Commune / Adresse"
+                        className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-sm"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Delivery Mode & Delivery Fee */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "طريقة التوصيل" : "Mode de livraison"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
+                          const newFee = feeObj.home || 0;
+                          const qty = Number(editingOrder.quantity) || 1;
+                          const price = Number(editingOrder.productPrice) || 0;
+                          setEditingOrder({
+                            ...editingOrder,
+                            deliveryType: "home",
+                            deliveryFee: newFee,
+                            total: (price * qty) + newFee
+                          });
+                        }}
+                        className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          (editingOrder.deliveryType || "home") === "home"
+                            ? "bg-brand-red/20 border-brand-red text-white"
+                            : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        <Home className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="truncate">{isRtl ? "منزل" : "Maison"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
+                          const newFee = feeObj.desk || 0;
+                          const qty = Number(editingOrder.quantity) || 1;
+                          const price = Number(editingOrder.productPrice) || 0;
+                          setEditingOrder({
+                            ...editingOrder,
+                            deliveryType: "desk",
+                            deliveryFee: newFee,
+                            total: (price * qty) + newFee
+                          });
+                        }}
+                        className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          editingOrder.deliveryType === "desk"
+                            ? "bg-brand-red/20 border-brand-red text-white"
+                            : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <span className="truncate">{isRtl ? "مكتب" : "Bureau (Desk)"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "تكلفة التوصيل (د.ج)" : "Frais de livraison (DZD)"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={editingOrder.deliveryFee ?? 0}
+                      onChange={(e) => {
+                        const newFee = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        const qty = Number(editingOrder.quantity) || 1;
+                        const price = Number(editingOrder.productPrice) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          deliveryFee: newFee,
+                          total: (price * qty) + newFee
+                        });
+                      }}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Product Selection */}
                 <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "تكلفة التوصيل (د.ج)" : "Frais de livraison (DZD)"}
+                  <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                    {isRtl ? "المنتج المطلوب *" : "Produit du catalogue *"}
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    value={editingOrder.deliveryFee ?? 0}
-                    onChange={(e) => {
-                      const newFee = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      const qty = Number(editingOrder.quantity) || 1;
-                      const price = Number(editingOrder.productPrice) || 0;
-                      setEditingOrder({
-                        ...editingOrder,
-                        deliveryFee: newFee,
-                        total: (price * qty) + newFee
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red"
-                  />
+                  <div className="space-y-2">
+                    <select
+                      value={editingOrder.productId || "custom"}
+                      onChange={handleProductSelectChange}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-medium text-sm"
+                    >
+                      <option value="custom">-- Saisir manuellement ou produit hors catalogue --</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nameFr} ({p.price?.toLocaleString()} DZD)
+                        </option>
+                      ))}
+                    </select>
+
+                    <textarea
+                      rows={editingOrder.productName?.includes("\n") || editingOrder.productName?.includes("•") ? 3 : 2}
+                      required
+                      value={editingOrder.productName}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, productName: e.target.value })}
+                      placeholder="Nom du produit ou liste des articles (ex. 4 articles: •...)"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red font-mono text-xs leading-relaxed"
+                    />
+                  </div>
+                </div>
+
+                {/* Quantity, Unit Price, Total (3 compact columns) */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {/* Quantity */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-[11px] sm:text-xs truncate">
+                      {isRtl ? "الكمية" : "Quantité"}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={editingOrder.quantity}
+                      onChange={(e) => {
+                        const newQty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                        const price = Number(editingOrder.productPrice) || 0;
+                        const fee = Number(editingOrder.deliveryFee) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          quantity: newQty,
+                          total: (price * newQty) + fee
+                        });
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
+                    />
+                  </div>
+
+                  {/* Unit Price */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-[11px] sm:text-xs truncate">
+                      {isRtl ? "سعر الوحدة (د.ج)" : "P.U (DZD)"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      required
+                      value={editingOrder.productPrice}
+                      onChange={(e) => {
+                        const newPrice = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        const qty = Number(editingOrder.quantity) || 1;
+                        const fee = Number(editingOrder.deliveryFee) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          productPrice: newPrice,
+                          total: (newPrice * qty) + fee
+                        });
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
+                    />
+                  </div>
+
+                  {/* Total */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-[11px] sm:text-xs truncate">
+                      {isRtl ? "المجموع (د.ج)" : "Total (DZD)"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      required
+                      value={editingOrder.total}
+                      onChange={(e) => {
+                        setEditingOrder({
+                          ...editingOrder,
+                          total: Math.max(0, parseInt(e.target.value, 10) || 0)
+                        });
+                      }}
+                      className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-black focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Vehicle Note */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "ملاحظة / طراز السيارة" : "Véhicule ou remarque"}
+                    </label>
+                    <input
+                      type="text"
+                      value={editingOrder.vehicleNote}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, vehicleNote: e.target.value })}
+                      placeholder="Ex: Clio 4, ampoules H7..."
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "حالة الطلبية" : "Statut de la commande"}
+                    </label>
+                    <select
+                      value={editingOrder.status || "nouveau"}
+                      onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-bold focus:outline-none focus:border-brand-red text-sm"
+                    >
+                      <option value="nouveau">Nouveau</option>
+                      <option value="confirme">Confirmé</option>
+                      <option value="expedie">Expédié</option>
+                      <option value="livre">Livré</option>
+                      <option value="annule">Annulé</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Product Selection */}
-              <div>
-                <label className="block text-zinc-300 font-bold mb-1">
-                  {isRtl ? "المنتج المطلوب *" : "Produit du catalogue *"}
-                </label>
-                <div className="space-y-2">
-                  <select
-                    value={editingOrder.productId || "custom"}
-                    onChange={handleProductSelectChange}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-medium"
-                  >
-                    <option value="custom">-- Saisir manuellement ou produit hors catalogue --</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nameFr} ({p.price?.toLocaleString()} DZD)
-                      </option>
-                    ))}
-                  </select>
-
-                  <textarea
-                    rows={editingOrder.productName?.includes("\n") || editingOrder.productName?.includes("•") ? 4 : 2}
-                    required
-                    value={editingOrder.productName}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, productName: e.target.value })}
-                    placeholder="Nom du produit ou liste des articles (ex. 4 articles: •...)"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red font-mono text-xs leading-relaxed"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Quantity */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "الكمية" : "Quantité"}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editingOrder.quantity}
-                    onChange={(e) => {
-                      const newQty = Math.max(1, parseInt(e.target.value, 10) || 1);
-                      const price = Number(editingOrder.productPrice) || 0;
-                      const fee = Number(editingOrder.deliveryFee) || 0;
-                      setEditingOrder({
-                        ...editingOrder,
-                        quantity: newQty,
-                        total: (price * newQty) + fee
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Unit Price */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "سعر الوحدة (د.ج)" : "Prix unitaire (DZD)"}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    required
-                    value={editingOrder.productPrice}
-                    onChange={(e) => {
-                      const newPrice = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      const qty = Number(editingOrder.quantity) || 1;
-                      const fee = Number(editingOrder.deliveryFee) || 0;
-                      setEditingOrder({
-                        ...editingOrder,
-                        productPrice: newPrice,
-                        total: (newPrice * qty) + fee
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Total */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "المجموع الكلي (د.ج)" : "Total (DZD)"}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    required
-                    value={editingOrder.total}
-                    onChange={(e) => {
-                      setEditingOrder({
-                        ...editingOrder,
-                        total: Math.max(0, parseInt(e.target.value, 10) || 0)
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-black focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Vehicle Note */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "ملاحظة / طراز السيارة" : "Véhicule ou remarque"}
-                  </label>
-                  <input
-                    type="text"
-                    value={editingOrder.vehicleNote}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, vehicleNote: e.target.value })}
-                    placeholder="Ex: Clio 4, ampoules H7..."
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Status */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "حالة الطلبية" : "Statut de la commande"}
-                  </label>
-                  <select
-                    value={editingOrder.status || "nouveau"}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-bold focus:outline-none focus:border-brand-red"
-                  >
-                    <option value="nouveau">Nouveau</option>
-                    <option value="confirme">Confirmé</option>
-                    <option value="expedie">Expédié</option>
-                    <option value="livre">Livré</option>
-                    <option value="annule">Annulé</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+              {/* Modal Buttons (Pinned at bottom) */}
+              <div className="shrink-0 flex items-center justify-end gap-2.5 px-4 py-3 sm:px-6 sm:py-4 border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm z-10">
                 <button
                   type="button"
                   onClick={() => {
                     setShowOrderModal(false);
                     setEditingOrder(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs sm:text-sm text-center transition-colors cursor-pointer"
                 >
                   {isRtl ? "إلغاء" : "Annuler"}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold shadow-glow-red disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold text-xs sm:text-sm shadow-glow-red disabled:opacity-50 text-center transition-all cursor-pointer"
                 >
                   {saving
                     ? (isRtl ? "جاري الحفظ..." : "Enregistrement...")

@@ -482,168 +482,183 @@ export function AppointmentsTab() {
 
       {/* ADD / EDIT APPOINTMENT MODAL */}
       {showAptModal && editingApt && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h4 className="text-base font-bold text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-brand-red" />
-                <span>
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-hidden"
+          onClick={() => {
+            setShowAptModal(false);
+            setEditingApt(null);
+          }}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header (Fixed at top) */}
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3.5 sm:px-6 sm:py-4 shrink-0 bg-zinc-900 z-10">
+              <h4 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-red shrink-0" />
+                <span className="truncate">
                   {editingApt.id
                     ? t.admin.appointmentsTab.editTitle || (isRtl ? "تعديل الموعد" : "Modifier le Rendez-vous")
                     : t.admin.appointmentsTab.addTitle || (isRtl ? "إضافة موعد جديد" : "Nouveau Rendez-vous")}
                 </span>
               </h4>
               <button
+                type="button"
                 onClick={() => {
                   setShowAptModal(false);
                   setEditingApt(null);
                 }}
-                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+                className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+                aria-label="Fermer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {formError && (
-              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
+            {/* Form wrapping scrollable content and pinned footer */}
+            <form onSubmit={handleSaveAppointment} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Scrollable Form Body */}
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 space-y-3.5 text-xs sm:text-sm">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
 
-            <form onSubmit={handleSaveAppointment} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Client Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Client Name */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "اسم الزبون *" : "Nom du client *"}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingApt.name}
+                      onChange={(e) => setEditingApt({ ...editingApt, name: e.target.value })}
+                      placeholder="Ex: Karim Bouzid"
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "رقم الهاتف *" : "Téléphone *"}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={editingApt.phone}
+                      onChange={(e) => setEditingApt({ ...editingApt, phone: e.target.value })}
+                      placeholder="0550 12 34 56"
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Vehicle */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "نوع السيارة والطراز *" : "Véhicule (modèle/année) *"}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingApt.vehicle}
+                      onChange={(e) => setEditingApt({ ...editingApt, vehicle: e.target.value })}
+                      placeholder="Ex: Golf 7, Clio 4, Tucson..."
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+
+                  {/* Preferred Date */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "اليوم المطلوب للحضور *" : "Date souhaitée *"}
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={editingApt.preferredDate}
+                      onChange={(e) => setEditingApt({ ...editingApt, preferredDate: e.target.value })}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono focus:outline-none focus:border-brand-red text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Service */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "الخدمة المطلوبة *" : "Prestation demandée *"}
+                    </label>
+                    <select
+                      value={editingApt.service}
+                      onChange={(e) => setEditingApt({ ...editingApt, service: e.target.value })}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-sm"
+                    >
+                      {serviceOptions.map((srv) => (
+                        <option key={srv} value={srv}>{srv}</option>
+                      ))}
+                      {editingApt.service && !serviceOptions.includes(editingApt.service) && (
+                        <option value={editingApt.service}>{editingApt.service}</option>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                      {isRtl ? "حالة الموعد" : "Statut"}
+                    </label>
+                    <select
+                      value={editingApt.status || "nouveau"}
+                      onChange={(e) => setEditingApt({ ...editingApt, status: e.target.value })}
+                      className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-bold text-sm"
+                    >
+                      <option value="nouveau">Nouveau</option>
+                      <option value="confirme">Confirmé</option>
+                      <option value="termine">Terminé</option>
+                      <option value="annule">Annulé</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Message / Remarks */}
                 <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "اسم الزبون *" : "Nom du client *"}
+                  <label className="block text-zinc-300 font-bold mb-1 text-xs">
+                    {isRtl ? "ملاحظات أو تفاصيل إضافية" : "Remarques ou message"}
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingApt.name}
-                    onChange={(e) => setEditingApt({ ...editingApt, name: e.target.value })}
-                    placeholder="Ex: Karim Bouzid"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
+                  <textarea
+                    rows={3}
+                    value={editingApt.message}
+                    onChange={(e) => setEditingApt({ ...editingApt, message: e.target.value })}
+                    placeholder={isRtl ? "أي تفاصيل بخصوص نوع المصابيح أو العمل المطلوب..." : "Ex: Ampoules H7, optique fissuré, etc."}
+                    className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red resize-none text-sm"
                   />
                 </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "رقم الهاتف *" : "Téléphone *"}
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={editingApt.phone}
-                    onChange={(e) => setEditingApt({ ...editingApt, phone: e.target.value })}
-                    placeholder="0550 12 34 56"
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-brand-red"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Vehicle */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "نوع السيارة والطراز *" : "Véhicule (modèle/année) *"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingApt.vehicle}
-                    onChange={(e) => setEditingApt({ ...editingApt, vehicle: e.target.value })}
-                    placeholder="Ex: Golf 7, Clio 4, Tucson..."
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Preferred Date */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "اليوم المطلوب للحضور *" : "Date souhaitée *"}
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editingApt.preferredDate}
-                    onChange={(e) => setEditingApt({ ...editingApt, preferredDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Service */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "الخدمة المطلوبة *" : "Prestation demandée *"}
-                  </label>
-                  <select
-                    value={editingApt.service}
-                    onChange={(e) => setEditingApt({ ...editingApt, service: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                  >
-                    {serviceOptions.map((srv) => (
-                      <option key={srv} value={srv}>{srv}</option>
-                    ))}
-                    {editingApt.service && !serviceOptions.includes(editingApt.service) && (
-                      <option value={editingApt.service}>{editingApt.service}</option>
-                    )}
-                  </select>
-                </div>
-
-                {/* Status */}
-                <div>
-                  <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "حالة الموعد" : "Statut"}
-                  </label>
-                  <select
-                    value={editingApt.status || "nouveau"}
-                    onChange={(e) => setEditingApt({ ...editingApt, status: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red font-bold"
-                  >
-                    <option value="nouveau">Nouveau</option>
-                    <option value="confirme">Confirmé</option>
-                    <option value="termine">Terminé</option>
-                    <option value="annule">Annulé</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Message / Remarks */}
-              <div>
-                <label className="block text-zinc-300 font-bold mb-1">
-                  {isRtl ? "ملاحظات أو تفاصيل إضافية" : "Remarques ou message"}
-                </label>
-                <textarea
-                  rows={3}
-                  value={editingApt.message}
-                  onChange={(e) => setEditingApt({ ...editingApt, message: e.target.value })}
-                  placeholder={isRtl ? "أي تفاصيل بخصوص نوع المصابيح أو العمل المطلوب..." : "Ex: Ampoules H7, optique fissuré, etc."}
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red resize-none"
-                />
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+              {/* Modal Buttons (Pinned at bottom) */}
+              <div className="shrink-0 flex items-center justify-end gap-2.5 px-4 py-3 sm:px-6 sm:py-4 border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm z-10">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAptModal(false);
                     setEditingApt(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs sm:text-sm text-center transition-colors cursor-pointer"
                 >
                   {isRtl ? "إلغاء" : "Annuler"}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold shadow-glow-red disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold text-xs sm:text-sm shadow-glow-red disabled:opacity-50 text-center transition-all cursor-pointer"
                 >
                   {saving
                     ? (isRtl ? "جاري الحفظ..." : "Enregistrement...")
