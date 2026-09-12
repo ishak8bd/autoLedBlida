@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
+import { LogoModal } from "./LogoModal";
 import {
   MapPin,
   Phone,
@@ -10,8 +11,7 @@ import {
   Lock,
   Copy,
   Check,
-  Truck,
-  X
+  Truck
 } from "lucide-react";
 
 export function Footer({ onOpenAdmin }) {
@@ -238,72 +238,8 @@ export function Footer({ onOpenAdmin }) {
 
       </div>
 
-      {/* Animated Fullscreen Logo Showcase Lightbox Modal */}
-      {logoModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
-          onClick={() => setLogoModalOpen(false)}
-        >
-          {/* Modal Container with Spring Zoom In */}
-          <div
-            className="relative max-w-sm sm:max-w-md w-full bg-zinc-950/95 border border-brand-red/60 rounded-3xl p-6 sm:p-8 shadow-glow-red-lg flex flex-col items-center text-center animate-zoom-in overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Ambient Background Glow Behind Logo */}
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-red/30 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-64 h-64 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setLogoModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-zinc-900/80 border border-zinc-700 text-zinc-400 hover:text-white hover:border-brand-red hover:bg-brand-red/20 transition-all z-20 cursor-pointer"
-              aria-label="Fermer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Large Animated Logo Display */}
-            <div className="relative group my-4">
-              {/* Pulsing red radar aura rings */}
-              <div className="absolute -inset-4 rounded-full bg-brand-red/40 blur-xl animate-pulse pointer-events-none" />
-              <div
-                className="absolute -inset-1.5 rounded-full bg-gradient-to-r from-brand-red via-brand-redLight to-rose-400 animate-spin pointer-events-none opacity-80 blur-xs"
-                style={{ animationDuration: "8s" }}
-              />
-
-              <div className="relative w-48 h-48 sm:w-64 sm:h-64 rounded-full overflow-hidden border-4 border-brand-red shadow-[0_0_50px_rgba(230,0,38,0.75)] bg-black p-1 transition-transform duration-500 hover:scale-105">
-                <img
-                  src="/logo.png"
-                  alt="AutoLedBlida Official Eagle Logo"
-                  className="w-full h-full object-cover rounded-full"
-                />
-                {/* Diagonal light sheen sweep */}
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-logo-shine pointer-events-none rounded-full" />
-              </div>
-            </div>
-
-            {/* Brand Title & Subtitle */}
-            <div className="space-y-1.5 z-10">
-              <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-                <span>{isRtl ? "أوتو ليد البليدة" : "AUTO LED BLIDA"}</span>
-              </h3>
-              <p className="text-sm font-semibold text-brand-redLight">
-                {isRtl ? settings.taglineAr || "الريادة والاحترافية في إنارة السيارات" : settings.taglineFr || "L'Excellence & la Rénovation en Éclairage Automobile"}
-              </p>
-              <p className="text-xs text-zinc-400 font-medium pt-1 flex items-center justify-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-brand-red" />
-                <span>{isRtl ? settings.cityAr || "أولاد يعيش - ولاية البليدة" : settings.city || "Ouled Yaïch, Blida - Algérie"}</span>
-              </p>
-            </div>
-
-            {/* Bottom Dismiss / Tap hint */}
-            <p className="text-[11px] text-zinc-500 pt-5 z-10">
-              {isRtl ? "انقر في أي مكان للإغلاق" : "Appuyez n'importe où pour fermer"}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Animated Logo Lightbox Modal */}
+      <LogoModal isOpen={logoModalOpen} onClose={() => setLogoModalOpen(false)} />
     </footer>
   );
 }
