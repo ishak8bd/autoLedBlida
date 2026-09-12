@@ -211,6 +211,11 @@ app.post("/api/admin/products", (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
+  const images = Array.isArray(req.body.images) && req.body.images.length > 0
+    ? req.body.images
+    : (req.body.image ? [req.body.image] : ["/biled-lens.jpg"]);
+  const mainImage = req.body.image || images[0] || "/biled-lens.jpg";
+
   const newProduct = {
     id: "prod-" + Date.now(),
     nameFr: req.body.nameFr || "Nouveau Produit",
@@ -220,7 +225,8 @@ app.post("/api/admin/products", (req, res) => {
     inStock: req.body.inStock !== false,
     badgeFr: req.body.badgeFr || "",
     badgeAr: req.body.badgeAr || "",
-    image: req.body.image || "/bmw-headlights.png",
+    image: mainImage,
+    images: images,
     descriptionFr: req.body.descriptionFr || "",
     descriptionAr: req.body.descriptionAr || ""
   };
@@ -237,11 +243,19 @@ app.put("/api/admin/products/:id", (req, res) => {
   const idx = data.products.findIndex((p) => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: "Produit non trouvé" });
 
+  const existing = data.products[idx];
+  const images = Array.isArray(req.body.images) && req.body.images.length > 0
+    ? req.body.images
+    : (req.body.image ? [req.body.image] : (existing.images || [existing.image]));
+  const mainImage = req.body.image || images[0] || existing.image;
+
   data.products[idx] = {
-    ...data.products[idx],
+    ...existing,
     ...req.body,
     id: req.params.id,
-    price: Number(req.body.price) || data.products[idx].price
+    image: mainImage,
+    images: images,
+    price: Number(req.body.price) || existing.price
   };
 
   writeData(data);

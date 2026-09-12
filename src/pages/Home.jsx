@@ -10,6 +10,7 @@ import { Footer } from "../components/Footer";
 import { MobileBar } from "../components/MobileBar";
 import { BookingModal } from "../components/BookingModal";
 import { OrderModal } from "../components/OrderModal";
+import { ProductDetailModal } from "../components/ProductDetailModal";
 
 export function Home({ onOpenAdmin }) {
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -17,6 +18,9 @@ export function Home({ onOpenAdmin }) {
 
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderProduct, setOrderProduct] = useState(null);
+
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewProduct, setViewProduct] = useState(null);
 
   const handleOpenBookingWithProduct = (product) => {
     setSelectedProduct(product);
@@ -31,6 +35,11 @@ export function Home({ onOpenAdmin }) {
   const handleOpenOrder = (product) => {
     setOrderProduct(product);
     setOrderOpen(true);
+  };
+
+  const handleOpenView = (product) => {
+    setViewProduct(product);
+    setViewOpen(true);
   };
 
   return (
@@ -58,6 +67,7 @@ export function Home({ onOpenAdmin }) {
         <Products
           onBuyProduct={handleOpenOrder}
           onSelectProductForBooking={handleOpenBookingWithProduct}
+          onViewProduct={handleOpenView}
         />
 
         {/* Portfolio & TikTok Showcase */}
@@ -82,6 +92,15 @@ export function Home({ onOpenAdmin }) {
         isOpen={orderOpen}
         onClose={() => setOrderOpen(false)}
         product={orderProduct}
+      />
+
+      {/* High-Resolution Product Detail & Multi-Image Gallery Modal */}
+      <ProductDetailModal
+        isOpen={viewOpen}
+        onClose={() => setViewOpen(false)}
+        product={viewProduct}
+        onBuy={handleOpenOrder}
+        onBook={handleOpenBookingWithProduct}
       />
     </div>
   );

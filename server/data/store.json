@@ -101,6 +101,12 @@
       "badgeFr": "Best-Seller",
       "badgeAr": "الأكثر طلباً",
       "image": "/uploads/images__1__1789171488550.jpg",
+      "images": [
+        "/uploads/images__1__1789171488550.jpg",
+        "/biled-lens.jpg",
+        "/aozoom-beam-wall.jpg",
+        "/fluence-retrofit.jpg"
+      ],
       "descriptionFr": "Projecteurs Bi-LED nouvelle génération 2024 avec faisceau laser ultra concentré, lentille HD bleue et coupure nette anti-éblouissement. Compatible avec la majorité des optiques.",
       "descriptionAr": "الجيل الجديد 2024 من عدسات البي ليد مع شعاع ليزري فائق الدقة، عدسة زرقاء عالية النقاء وخط قطع مستقيم يمنع إبهار السائقين الآخرين."
     },
@@ -114,6 +120,11 @@
       "badgeFr": "Haut de Gamme",
       "badgeAr": "جودة ممتازة",
       "image": "/uploads/images_1789171382815.jpg",
+      "images": [
+        "/uploads/images_1789171382815.jpg",
+        "/led-bulb.jpg",
+        "/crystal-headlight.jpg"
+      ],
       "descriptionFr": "Puce CSP Coréenne haute puissance, tube en cuivre sous vide pour refroidissement optimal. Aucun code d'erreur au tableau de bord (Canbus Pro). Disponibles en H7, H4, H1, H11, 9005.",
       "descriptionAr": "شرائح كورية فائقة القوة مع أنبوب نحاسي مفرغ لتبريد استثنائي. نظام كانباص متطور يمنع ظهور الأخطاء في لوحة القيادة. متوفر بجميع المقاسات."
     },
@@ -127,6 +138,11 @@
       "badgeFr": "Plug & Play",
       "badgeAr": "تركيب مباشر",
       "image": "/uploads/images__2__1789171569395.jpg",
+      "images": [
+        "/uploads/images__2__1789171569395.jpg",
+        "/aozoom-beam-wall.jpg",
+        "/biled-lens.jpg"
+      ],
       "descriptionFr": "Lentille projecteur Bi-LED compacte qui se monte directement dans l'emplacement d'origine sans ouvrir le phare. Éclairage double (croisement + route) net et puissant.",
       "descriptionAr": "عدسة بي ليد مدمجة تركب في المكان الأصلي للمصباح مباشرة دون الحاجة لفتح زجاج الفانوس. إنارة مزدوجة (كود وفار) فائقة الوضوح."
     },
@@ -140,6 +156,11 @@
       "badgeFr": "Éclairage Pur",
       "badgeAr": "أبيض نقي",
       "image": "/xenon-kit.jpg",
+      "images": [
+        "/xenon-kit.jpg",
+        "/crystal-headlight.jpg",
+        "/bmw-headlights.png"
+      ],
       "descriptionFr": "Ballasts métalliques slim nouvelle technologie à allumage instantané (Fast Start). Ampoules quartz anti-UV 6000K blanc diamant.",
       "descriptionAr": "محولات معدنية نحيفة سريعة الاشتعال مع لمبات كوارتز مقاومة للحرارة والأشعة فوق البنفسجية بلون أبيض ناصع 6000 كلفن."
     },
@@ -153,6 +174,11 @@
       "badgeFr": "Silencieux",
       "badgeAr": "صامت وعملي",
       "image": "/uploads/71vf-hjzbvl_1789171673909.jpg",
+      "images": [
+        "/uploads/71vf-hjzbvl_1789171673909.jpg",
+        "/crystal-headlight.jpg",
+        "/led-bulb.jpg"
+      ],
       "descriptionFr": "Design 1:1 identique aux ampoules halogènes d'origine. Corps en aluminium aéronautique avec dissipation thermique passive.",
       "descriptionAr": "تصميم مطابق تماماً للمصابيح الأصلية لمقاس 1:1. هيكل ألومنيوم طيران لتشتيت الحرارة بكفاءة وعمر افتراضي طويل."
     },
@@ -166,6 +192,11 @@
       "badgeFr": "Personnalisation",
       "badgeAr": "تعديل خاص",
       "image": "/angel-eyes.jpg",
+      "images": [
+        "/angel-eyes.jpg",
+        "/bmw-hero.jpg",
+        "/fluence-retrofit.jpg"
+      ],
       "descriptionFr": "Anneaux circulaires style BMW avec contrôle via Bluetooth smartphone ou télécommande. Mode clignotant défilant dynamique orange.",
       "descriptionAr": "حلقات دائرية على طراز بي إم دبليو يتم التحكم بألوانها عبر تطبيق البلوتوث بالهاتف، مع ميزة الإشارة المتتابعة الديناميكية."
     }

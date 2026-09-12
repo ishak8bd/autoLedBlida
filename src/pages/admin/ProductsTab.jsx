@@ -1,5 +1,5 @@
-﻿import React, { useState } from "react";
-import { Plus, Edit, Trash2, XCircle, Upload, Image as ImageIcon, Check } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, Edit, Trash2, XCircle, Upload, Image as ImageIcon, Check, Star, Camera } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 
@@ -21,24 +21,107 @@ export function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [customUrlInput, setCustomUrlInput] = useState("");
 
   const products = data?.products || [];
   const categories = data?.categories || [];
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleMultiFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
     setUploading(true);
     try {
-      const url = await uploadImage(file);
-      setEditingProduct((prev) => ({ ...prev, image: url }));
+      const newUrls = [];
+      for (const file of files) {
+        const url = await uploadImage(file);
+        if (url) newUrls.push(url);
+      }
+
+      setEditingProduct((prev) => {
+        const existingImages = Array.isArray(prev.images) && prev.images.length > 0
+          ? prev.images
+          : (prev.image ? [prev.image] : []);
+        const combined = [...existingImages, ...newUrls];
+        return {
+          ...prev,
+          images: combined,
+          image: prev.image || combined[0] || ""
+        };
+      });
     } catch (err) {
-      console.error("Failed to upload image:", err);
+      console.error("Failed to upload images:", err);
       alert("Échec du téléversement de l'image");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
+  };
+
+  const handleAddCustomUrl = () => {
+    const trimmed = customUrlInput.trim();
+    if (!trimmed) return;
+
+    setEditingProduct((prev) => {
+      const existingImages = Array.isArray(prev.images) && prev.images.length > 0
+        ? prev.images
+        : (prev.image ? [prev.image] : []);
+      const combined = [...existingImages, trimmed];
+      return {
+        ...prev,
+        images: combined,
+        image: prev.image || trimmed
+      };
+    });
+    setCustomUrlInput("");
+  };
+
+  const handleAddPreset = (url) => {
+    setEditingProduct((prev) => {
+      const existingImages = Array.isArray(prev.images) && prev.images.length > 0
+        ? prev.images
+        : (prev.image ? [prev.image] : []);
+
+      if (!existingImages.includes(url)) {
+        const combined = [...existingImages, url];
+        return {
+          ...prev,
+          images: combined,
+          image: prev.image || url
+        };
+      } else {
+        return {
+          ...prev,
+          image: url
+        };
+      }
+    });
+  };
+
+  const handleSetMainImage = (url) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      image: url
+    }));
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setEditingProduct((prev) => {
+      const currentList = Array.isArray(prev.images) ? [...prev.images] : (prev.image ? [prev.image] : []);
+      const removedUrl = currentList[indexToRemove];
+      const updatedList = currentList.filter((_, idx) => idx !== indexToRemove);
+
+      let newMain = prev.image;
+      if (newMain === removedUrl) {
+        newMain = updatedList.length > 0 ? updatedList[0] : "";
+      }
+
+      return {
+        ...prev,
+        images: updatedList,
+        image: newMain
+      };
+    });
   };
 
   return (
@@ -62,6 +145,7 @@ export function ProductsTab() {
               badgeFr: "Nouveau",
               badgeAr: "جديد",
               image: "/biled-lens.jpg",
+              images: ["/biled-lens.jpg"],
               descriptionFr: "",
               descriptionAr: ""
             });
@@ -88,65 +172,81 @@ export function ProductsTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
-              {products.map((p) => (
-                <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
-                  <td className="p-3.5 px-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={p.image || "/biled-lens.jpg"}
-                        alt={p.nameFr}
-                        className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700 shrink-0"
-                      />
-                      <div>
-                        <div className="font-bold text-white line-clamp-1">{p.nameFr}</div>
-                        <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+              {products.map((p) => {
+                const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
+                return (
+                  <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
+                    <td className="p-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <img
+                            src={p.image || "/biled-lens.jpg"}
+                            alt={p.nameFr}
+                            className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700"
+                          />
+                          {imgCount > 1 && (
+                            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
+                              <Camera className="w-2.5 h-2.5" />
+                              {imgCount}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white line-clamp-1">{p.nameFr}</div>
+                          <div className="text-xs text-zinc-400 line-clamp-1">{p.nameAr}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="p-3.5 px-4 font-medium text-zinc-300">
-                    {p.category}
-                  </td>
-                  <td className="p-3.5 px-4 font-mono font-black text-white">
-                    {p.price?.toLocaleString()} DZD
-                  </td>
-                  <td className="p-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                        p.inStock
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
-                          : "bg-rose-950 text-rose-400 border border-rose-500/40"
-                      }`}
-                    >
-                      {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
-                    </span>
-                  </td>
-                  <td className="p-3.5 px-4 text-end">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingProduct({ ...p });
-                          setShowProductModal(true);
-                        }}
-                        className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
-                        title="Modifier"
+                    </td>
+                    <td className="p-3.5 px-4 font-medium text-zinc-300">
+                      {p.category}
+                    </td>
+                    <td className="p-3.5 px-4 font-mono font-black text-white">
+                      {p.price?.toLocaleString()} DZD
+                    </td>
+                    <td className="p-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          p.inStock
+                            ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
+                            : "bg-rose-950 text-rose-400 border border-rose-500/40"
+                        }`}
                       >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Supprimer ce produit ?")) {
-                            deleteProduct(p.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
+                      </span>
+                    </td>
+                    <td className="p-3.5 px-4 text-end">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingProduct({
+                              ...p,
+                              images: Array.isArray(p.images) && p.images.length > 0
+                                ? [...p.images]
+                                : (p.image ? [p.image] : [])
+                            });
+                            setShowProductModal(true);
+                          }}
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                          title="Modifier"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Supprimer ce produit ?")) {
+                              deleteProduct(p.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -229,13 +329,15 @@ export function ProductsTab() {
                 </div>
               </div>
 
-              {/* --- IMAGE UPLOAD & SELECTION SECTION --- */}
-              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-xs flex items-center gap-1.5">
+              {/* --- MULTI-IMAGE UPLOAD & MANAGEMENT SECTION --- */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-brand-red" />
-                    {isRtl ? "صورة المنتج (رفع أو كتابة الرابط أو الاختيار)" : "Photo du produit (Téléverser, Lien ou Sélection)"}
-                  </span>
+                    <span className="font-bold text-white text-xs sm:text-sm">
+                      {isRtl ? "صور المنتج المتعددة واختيار الصورة الرئيسية" : "Photos du produit (Multi-images & Photo Principale)"}
+                    </span>
+                  </div>
                   {uploading && (
                     <span className="text-[11px] text-amber-400 font-bold animate-pulse">
                       Téléversement en cours...
@@ -243,82 +345,149 @@ export function ProductsTab() {
                   )}
                 </div>
 
-                {/* Option A: Direct Device File Upload */}
-                <div className="flex items-center gap-3">
-                  <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-dashed border-zinc-600 hover:border-brand-red text-white text-xs font-bold transition-all w-full sm:w-auto">
-                    <Upload className="w-4 h-4 text-brand-redLight" />
-                    <span>{isRtl ? "رفع صورة من هاتفك أو جهازك" : "Téléverser depuis appareil (PC/Téléphone)"}</span>
+                {/* Upload Button + URL input */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* File Upload Button */}
+                  <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-dashed border-zinc-600 hover:border-brand-red text-white text-xs font-bold transition-all text-center">
+                    <Upload className="w-4 h-4 text-brand-redLight shrink-0" />
+                    <span>{isRtl ? "رفع عدة صور معاً (Téléverser)" : "Téléverser plusieurs photos"}</span>
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleFileUpload}
+                      multiple
+                      onChange={handleMultiFileUpload}
                       className="hidden"
                     />
                   </label>
+
+                  {/* Add by URL / Filename */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={customUrlInput}
+                      onChange={(e) => setCustomUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomUrl();
+                        }
+                      }}
+                      placeholder="Lien ou nom: /photo.jpg..."
+                      className="flex-1 px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomUrl}
+                      className="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Option B: Manual URL or filename */}
-                <div>
-                  <label className="text-[11px] text-zinc-400 block mb-1">
-                    {isRtl ? "أو اكتب رابط الصورة أو اسمها المباشر (Lien ou nom) :" : "Ou écrivez le lien / nom de l'image (ex. /biled-lens.jpg ou https://...) :"}
-                  </label>
-                  <input
-                    type="text"
-                    value={editingProduct.image}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
-                    placeholder="/biled-lens.jpg, /led-bulb.jpg, /xenon-kit.jpg..."
-                    className="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
-                  />
-                </div>
-
-                {/* Option C: Preset Workshop Gallery */}
-                <div className="space-y-1.5 pt-1">
+                {/* Workshop Presets (1-click quick add) */}
+                <div className="space-y-1.5">
                   <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">
-                    {isRtl ? "أو اختر صورة جاهزة من صور الورشة بنقرة واحدة :" : "Ou choisissez parmi les photos de l'atelier :"}
+                    {isRtl ? "أو أضف من صور الورشة الجاهزة بنقرة واحدة :" : "Ou ajoutez depuis les photos d'atelier :"}
                   </span>
                   <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                    {PRESET_GALLERY.map((item) => (
-                      <button
-                        key={item.url}
-                        type="button"
-                        onClick={() => setEditingProduct({ ...editingProduct, image: item.url })}
-                        className={`relative aspect-square rounded-lg overflow-hidden border transition-all ${
-                          editingProduct.image === item.url
-                            ? "border-brand-red ring-2 ring-brand-red scale-105"
-                            : "border-zinc-800 hover:border-zinc-600 opacity-70 hover:opacity-100"
-                        }`}
-                        title={item.label}
-                      >
-                        <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
-                        {editingProduct.image === item.url && (
-                          <div className="absolute inset-0 bg-brand-red/30 flex items-center justify-center">
-                            <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                    {PRESET_GALLERY.map((item) => {
+                      const isAdded = editingProduct.images?.includes(item.url);
+                      const isMain = editingProduct.image === item.url;
+                      return (
+                        <button
+                          key={item.url}
+                          type="button"
+                          onClick={() => handleAddPreset(item.url)}
+                          className={`relative aspect-square rounded-lg overflow-hidden border transition-all ${
+                            isMain
+                              ? "border-brand-red ring-2 ring-brand-red scale-105"
+                              : isAdded
+                              ? "border-emerald-500 opacity-90"
+                              : "border-zinc-800 hover:border-zinc-600 opacity-60 hover:opacity-100"
+                          }`}
+                          title={`${item.label} (Cliquer pour ajouter / définir principale)`}
+                        >
+                          <img src={item.url} alt={item.label} className="w-full h-full object-cover" />
+                          {isMain && (
+                            <div className="absolute inset-0 bg-brand-red/30 flex items-center justify-center">
+                              <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Live Preview of Selected Image */}
-                {editingProduct.image && (
-                  <div className="pt-2 flex items-center gap-3">
-                    <img
-                      src={editingProduct.image}
-                      alt="Aperçu"
-                      className="w-16 h-16 rounded-xl object-cover bg-zinc-900 border border-zinc-700 shadow-sm"
-                    />
-                    <div className="text-xs space-y-0.5">
-                      <div className="font-bold text-white flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Aperçu de la photo sélectionnée</span>
-                      </div>
-                      <div className="text-[11px] text-zinc-400 font-mono truncate max-w-xs">
-                        {editingProduct.image}
-                      </div>
-                    </div>
+                {/* --- CURRENT PRODUCT GALLERY & MAIN SELECTION --- */}
+                <div className="space-y-2 pt-2 border-t border-zinc-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-300">
+                      {isRtl ? "صور هذا المنتج (اضغط لاختيار الصورة الرئيسية) :" : "Galerie du produit (Cliquez pour définir la photo principale) :"}
+                    </span>
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      {editingProduct.images?.length || 0} photo(s)
+                    </span>
                   </div>
-                )}
+
+                  {(!editingProduct.images || editingProduct.images.length === 0) ? (
+                    <div className="p-4 rounded-xl bg-zinc-900/50 border border-dashed border-zinc-800 text-center text-xs text-zinc-500">
+                      Aucune image ajoutée. Téléversez des photos ou choisissez ci-dessus.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {editingProduct.images.map((imgUrl, idx) => {
+                        const isMain = (editingProduct.image === imgUrl) || (!editingProduct.image && idx === 0);
+                        return (
+                          <div
+                            key={`${imgUrl}-${idx}`}
+                            className={`group relative rounded-xl overflow-hidden border transition-all ${
+                              isMain
+                                ? "border-brand-red ring-2 ring-brand-red/80 shadow-glow-red"
+                                : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
+                            }`}
+                          >
+                            <div className="aspect-square w-full bg-zinc-900 overflow-hidden">
+                              <img
+                                src={imgUrl}
+                                alt={`Photo ${idx + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+
+                            {/* Main Badge / Selection overlay */}
+                            {isMain ? (
+                              <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-brand-red text-white text-[10px] font-bold flex items-center gap-1 shadow-md">
+                                <Star className="w-3 h-3 fill-white" />
+                                <span>{isRtl ? "الرئيسية" : "Principale"}</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetMainImage(imgUrl)}
+                                className="absolute inset-x-0 bottom-0 py-1 bg-black/80 hover:bg-brand-red text-white text-[10px] font-bold text-center opacity-90 group-hover:opacity-100 transition-colors"
+                              >
+                                {isRtl ? "تعيين كرئيسية" : "Définir principale"}
+                              </button>
+                            )}
+
+                            {/* Delete image button */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/70 hover:bg-rose-600 text-zinc-300 hover:text-white transition-colors"
+                              title="Supprimer cette photo"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               </div>
 
               {/* Stock Status & Badges */}
@@ -399,7 +568,16 @@ export function ProductsTab() {
               <button
                 type="button"
                 onClick={async () => {
-                  await saveProduct(editingProduct);
+                  const currentImages = Array.isArray(editingProduct.images) && editingProduct.images.length > 0
+                    ? editingProduct.images
+                    : (editingProduct.image ? [editingProduct.image] : ["/biled-lens.jpg"]);
+                  const mainImage = editingProduct.image || currentImages[0] || "/biled-lens.jpg";
+
+                  await saveProduct({
+                    ...editingProduct,
+                    image: mainImage,
+                    images: currentImages
+                  });
                   setShowProductModal(false);
                 }}
                 className="px-5 py-2.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white text-xs font-bold shadow-glow-red"
