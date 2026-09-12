@@ -93,7 +93,7 @@ app.post("/api/appointments", (req, res) => {
 
 // 2b. Public endpoint: Submit product order
 app.post("/api/orders", (req, res) => {
-  const { customerName, phone, wilaya, commune, quantity, vehicleNote, productId, productName, productPrice, productImage } = req.body;
+  const { customerName, phone, wilaya, commune, quantity, vehicleNote, productId, productName, productPrice, productImage, deliveryType, deliveryFee } = req.body;
   const cleanedPhone = cleanAlgerianPhone(phone);
 
   if (!customerName || !cleanedPhone || !wilaya || !commune) {
@@ -111,7 +111,9 @@ app.post("/api/orders", (req, res) => {
 
   const qty = Math.max(1, Number(quantity) || 1);
   const price = Number(productPrice) || 0;
-  const total = price * qty;
+  const subtotal = price * qty;
+  const dFee = Number(deliveryFee) || 0;
+  const total = req.body.total !== undefined ? Number(req.body.total) : (subtotal + dFee);
 
   const newOrder = {
     id: "cmd-" + Date.now(),
@@ -119,12 +121,15 @@ app.post("/api/orders", (req, res) => {
     phone: cleanedPhone,
     wilaya: wilaya.trim(),
     commune: (commune || "").trim(),
+    deliveryType: deliveryType || "home",
+    deliveryFee: dFee,
     quantity: qty,
     vehicleNote: (vehicleNote || "").trim(),
     productId: productId || "",
     productName: productName || "Produit AutoLedBlida",
     productImage: productImage || "",
     productPrice: price,
+    subtotal,
     total,
     status: "nouveau",
     createdAt: new Date().toISOString()
@@ -251,6 +256,38 @@ app.delete("/api/admin/phones/:id", (req, res) => {
   data.settings.phoneNumbers = phones;
   writeData(data);
   res.json({ success: true, phoneNumbers: data.settings.phoneNumbers, whatsappMain: data.settings.whatsappMain });
+});
+
+// 6b. Admin: Delivery Fees Management (Get & Update per Wilaya or Bulk)
+app.get("/api/admin/delivery-fees", (req, res) => {
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+  res.json({ success: true, deliveryFees: data.deliveryFees || {} });
+});
+
+app.put("/api/admin/delivery-fees", (req, res) => {
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const { deliveryFees, wilaya, home, desk, active } = req.body;
+
+  if (deliveryFees && typeof deliveryFees === "object") {
+    data.deliveryFees = {
+      ...(data.deliveryFees || {}),
+      ...deliveryFees
+    };
+  } else if (wilaya) {
+    if (!data.deliveryFees) data.deliveryFees = {};
+    data.deliveryFees[wilaya] = {
+      ...(data.deliveryFees[wilaya] || {}),
+      home: home !== undefined ? Number(home) : (data.deliveryFees[wilaya]?.home ?? 700),
+      desk: desk !== undefined ? Number(desk) : (data.deliveryFees[wilaya]?.desk ?? 450),
+      active: active !== undefined ? Boolean(active) : (data.deliveryFees[wilaya]?.active ?? true)
+    };
+  }
+
+  writeData(data);
+  res.json({ success: true, deliveryFees: data.deliveryFees });
 });
 
 // 7. Admin: Product CRUD
@@ -423,7 +460,7 @@ app.delete("/api/admin/appointments/:id", (req, res) => {
 
 // 9b. Admin: Order CRUD (Create, Edit, Status & Deletion)
 app.post("/api/admin/orders", (req, res) => {
-  const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, total, vehicleNote, status } = req.body;
+  const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, deliveryType, deliveryFee, total, vehicleNote, status } = req.body;
   if (!customerName || !phone) {
     return res.status(400).json({ error: "Nom et téléphone requis" });
   }
@@ -433,7 +470,8 @@ app.post("/api/admin/orders", (req, res) => {
 
   const qty = Math.max(1, Number(quantity) || 1);
   const price = Number(productPrice) || 0;
-  const finalTotal = total !== undefined ? Number(total) : (price * qty);
+  const dFee = Number(deliveryFee) || 0;
+  const finalTotal = total !== undefined ? Number(total) : (price * qty + dFee);
 
   const newOrder = {
     id: "cmd-" + Date.now(),
@@ -441,6 +479,8 @@ app.post("/api/admin/orders", (req, res) => {
     phone: cleanAlgerianPhone(phone),
     wilaya: (wilaya || "").trim(),
     commune: (commune || "").trim(),
+    deliveryType: deliveryType || "home",
+    deliveryFee: dFee,
     productId: productId || "",
     productName: productName || "Produit",
     productPrice: price,

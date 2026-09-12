@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { getDefaultDeliveryFee, generateInitialDeliveryFees } from "../data/algeriaWilayasCommunes";
 
 const DataContext = createContext();
 
@@ -15,6 +16,9 @@ export function DataProvider({ children }) {
       const res = await fetch(`${API_BASE}/api/data`);
       if (!res.ok) throw new Error("HTTP error " + res.status);
       const json = await res.json();
+      if (!json.deliveryFees) {
+        json.deliveryFees = generateInitialDeliveryFees();
+      }
       setData(json);
       localStorage.setItem("autoled_cache", JSON.stringify(json));
       setError(null);
@@ -23,10 +27,16 @@ export function DataProvider({ children }) {
       const cached = localStorage.getItem("autoled_cache");
       if (cached) {
         try {
-          setData(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          if (!parsed.deliveryFees) {
+            parsed.deliveryFees = generateInitialDeliveryFees();
+          }
+          setData(parsed);
         } catch {
           // ignore
         }
+      } else {
+        setData((prev) => prev || { deliveryFees: generateInitialDeliveryFees() });
       }
     } finally {
       setLoading(false);
@@ -511,11 +521,16 @@ export function DataProvider({ children }) {
     // Local fallback
     const qty = Math.max(1, Number(orderData.quantity) || 1);
     const price = Number(orderData.productPrice) || 0;
+    const subtotal = price * qty;
+    const dFee = Number(orderData.deliveryFee) || 0;
     const fallbackOrder = {
       id: "cmd-" + Date.now(),
       ...orderData,
       quantity: qty,
-      total: price * qty,
+      subtotal,
+      deliveryType: orderData.deliveryType || "home",
+      deliveryFee: dFee,
+      total: orderData.total !== undefined ? Number(orderData.total) : (subtotal + dFee),
       status: "nouveau",
       createdAt: new Date().toISOString()
     };
@@ -642,6 +657,60 @@ export function DataProvider({ children }) {
     return { success: true, order: fallbackOrder };
   };
 
+  // 11. Admin: Delivery Fees Management (Bureau & Maison per wilaya)
+  const saveDeliveryFees = async (feesOrWilayaData) => {
+    try {
+      const isSingle = Boolean(feesOrWilayaData && feesOrWilayaData.wilaya);
+      const body = isSingle ? feesOrWilayaData : { deliveryFees: feesOrWilayaData };
+      const res = await fetch(`${API_BASE}/api/admin/delivery-fees`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setData((prev) => ({
+          ...prev,
+          deliveryFees: json.deliveryFees
+        }));
+        return { success: true, deliveryFees: json.deliveryFees };
+      }
+    } catch (e) {
+      console.warn("Offline delivery fees save", e);
+    }
+
+    // Local fallback
+    setData((prev) => {
+      let updatedFees = { ...(prev?.deliveryFees || generateInitialDeliveryFees()) };
+      if (feesOrWilayaData && feesOrWilayaData.wilaya) {
+        const { wilaya, home, desk, active } = feesOrWilayaData;
+        updatedFees[wilaya] = {
+          ...(updatedFees[wilaya] || {}),
+          home: home !== undefined ? Number(home) : (updatedFees[wilaya]?.home ?? 700),
+          desk: desk !== undefined ? Number(desk) : (updatedFees[wilaya]?.desk ?? 450),
+          active: active !== undefined ? Boolean(active) : (updatedFees[wilaya]?.active ?? true)
+        };
+      } else if (feesOrWilayaData) {
+        updatedFees = { ...updatedFees, ...feesOrWilayaData };
+      }
+      const updated = { ...prev, deliveryFees: updatedFees };
+      localStorage.setItem("autoled_cache", JSON.stringify(updated));
+      return updated;
+    });
+    return { success: true };
+  };
+
+  const getWilayaDeliveryFee = (wilayaName) => {
+    if (!wilayaName) return { home: 700, desk: 450, active: true };
+    const found = data?.deliveryFees?.[wilayaName];
+    if (found) return found;
+    if (data?.deliveryFees) {
+      const key = Object.keys(data.deliveryFees).find((k) => k.includes(wilayaName) || wilayaName.includes(k));
+      if (key && data.deliveryFees[key]) return data.deliveryFees[key];
+    }
+    return getDefaultDeliveryFee(wilayaName);
+  };
+
   const uploadImage = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -692,7 +761,10 @@ export function DataProvider({ children }) {
         createOrder,
         saveOrder,
         updateOrderStatus,
-        deleteOrder
+        deleteOrder,
+        deliveryFees: data?.deliveryFees || {},
+        saveDeliveryFees,
+        getWilayaDeliveryFee
       }}
     >
       {children}

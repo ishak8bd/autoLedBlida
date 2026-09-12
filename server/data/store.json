@@ -10,7 +10,7 @@
     "taglineAr": "خبراء في إنارة وتجهيز السيارات",
     "subtaglineFr": "Spécialiste Ampoules LED Haute Puissance, Xénon & Projecteurs Bi-LED Retrofit à Blida",
     "subtaglineAr": "متخصصون في لمبات الليد فائقة القوة، الزينون وتركيب عدسات البي ليد في البليدة",
-    "deliveryWilayas": 69,
+    "deliveryWilayas": 1,
     "whatsappMain": "0561147039",
     "phoneNumbers": [
       {
@@ -56,8 +56,8 @@
     "openingHoursAr": "السبت - الخميس : 09:00 - 19:00 | الجمعة : عطلة",
     "holidayBanner": {
       "enabled": true,
-      "titleFr": "Livraison 69 Wilayas & Atelier Ouvert",
-      "titleAr": "توصيل متوفر لـ 69 ولاية والورشة في خدمتكم",
+      "titleFr": " Vacances Annuelle",
+      "titleAr": "عطلة سنوية",
       "messageFr": "Livraison rapide dans les 69 wilayas d'Algérie ! Pour vos installations et réglages optiques à Ouled Yaïch, réservez votre rendez-vous en ligne.",
       "messageAr": "توصيل سريع ومتوفر لكافة الـ 69 ولاية! لتركيب وتعديل إنارة سيارتكم في ورشتنا بأولاد يعيش، احجزوا موعدكم مباشرة عبر الموقع.",
       "badgeFr": "69 Wilayas",
@@ -348,5 +348,352 @@
       "status": "nouveau",
       "createdAt": "2026-09-11T22:30:00.000Z"
     }
-  ]
+  ],
+  "deliveryFees": {
+    "01 - Adrar": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "02 - Chlef": {
+      "home": 600,
+      "desk": 350,
+      "active": true
+    },
+    "03 - Laghouat": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "04 - Oum El Bouaghi": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "05 - Batna": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "06 - Béjaïa": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "07 - Biskra": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "08 - Béchar": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "09 - Blida": {
+      "home": 350,
+      "desk": 200,
+      "active": true
+    },
+    "10 - Bouira": {
+      "home": 600,
+      "desk": 350,
+      "active": true
+    },
+    "11 - Tamanrasset": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "12 - Tébessa": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "13 - Tlemcen": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "14 - Tiaret": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "15 - Tizi Ouzou": {
+      "home": 600,
+      "desk": 350,
+      "active": true
+    },
+    "16 - Alger": {
+      "home": 500,
+      "desk": 300,
+      "active": true
+    },
+    "17 - Djelfa": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "18 - Jijel": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "19 - Sétif": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "20 - Saïda": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "21 - Skikda": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "22 - Sidi Bel Abbès": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "23 - Annaba": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "24 - Guelma": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "25 - Constantine": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "26 - Médéa": {
+      "home": 500,
+      "desk": 300,
+      "active": true
+    },
+    "27 - Mostaganem": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "28 - M'Sila": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "29 - Mascara": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "30 - Ouargla": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "31 - Oran": {
+      "home": 650,
+      "desk": 400,
+      "active": true
+    },
+    "32 - El Bayadh": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "33 - Illizi": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "34 - Bordj Bou Arréridj": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "35 - Boumerdès": {
+      "home": 500,
+      "desk": 300,
+      "active": true
+    },
+    "36 - El Tarf": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "37 - Tindouf": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "38 - Tissemsilt": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "39 - El Oued": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "40 - Khenchela": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "41 - Souk Ahras": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "42 - Tipaza": {
+      "home": 500,
+      "desk": 300,
+      "active": true
+    },
+    "43 - Mila": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "44 - Aïn Defla": {
+      "home": 600,
+      "desk": 350,
+      "active": true
+    },
+    "45 - Naâma": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "46 - Aïn Témouchent": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "47 - Ghardaïa": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "48 - Relizane": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "49 - Timimoun": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "50 - Bordj Badji Mokhtar": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "51 - Ouled Djellal": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "52 - Béni Abbès": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "53 - In Salah": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "54 - In Guezzam": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "55 - Touggourt": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "56 - Djanet": {
+      "home": 1300,
+      "desk": 850,
+      "active": true
+    },
+    "57 - El M'Ghair": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "58 - El Meniaa": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "59 - Aflou": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "60 - Barika": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "61 - Ksar Chellala": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "62 - Messaad": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "63 - Aïn Oussera": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "64 - Boussaâda": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "65 - El Abiodh Sidi Cheikh": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "66 - El Eulma": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    },
+    "67 - Touggourt Sud": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "68 - Debila": {
+      "home": 900,
+      "desk": 550,
+      "active": true
+    },
+    "69 - Maghnia": {
+      "home": 700,
+      "desk": 450,
+      "active": true
+    }
+  }
 }

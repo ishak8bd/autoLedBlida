@@ -9,7 +9,8 @@ import {
   Settings,
   BarChart3,
   LogOut,
-  Globe
+  Globe,
+  Truck
 } from "lucide-react";
 
 import { AdminPin } from "./admin/AdminPin";
@@ -20,6 +21,7 @@ import { PhonesTab } from "./admin/PhonesTab";
 import { CategoriesTab } from "./admin/CategoriesTab";
 import { SettingsTab } from "./admin/SettingsTab";
 import { StatsTab } from "./admin/StatsTab";
+import { DeliveryTab } from "./admin/DeliveryTab";
 
 export function Admin({ onBackToSite }) {
   const { lang, toggleLang, isRtl, t } = useLanguage();
@@ -137,6 +139,21 @@ export function Admin({ onBackToSite }) {
           </button>
 
           <button
+            onClick={() => setActiveTab("delivery")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+              activeTab === "delivery"
+                ? "bg-brand-red text-white shadow-glow-red"
+                : "bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>{t.admin.tabs.delivery || (isRtl ? "أسعار التوصيل" : "Tarifs Livraison")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
+              69
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("phones")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
               activeTab === "phones"
@@ -192,6 +209,7 @@ export function Admin({ onBackToSite }) {
         {activeTab === "orders" && <OrdersTab />}
         {activeTab === "appointments" && <AppointmentsTab />}
         {activeTab === "products" && <ProductsTab />}
+        {activeTab === "delivery" && <DeliveryTab />}
         {activeTab === "phones" && <PhonesTab />}
         {activeTab === "categories" && <CategoriesTab />}
         {activeTab === "settings" && <SettingsTab />}

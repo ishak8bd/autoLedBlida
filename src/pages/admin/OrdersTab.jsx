@@ -1,12 +1,31 @@
 import React, { useState } from "react";
-import { Search, Download, Phone, MessageSquare, Trash2, ShoppingBag, Truck, CheckCircle2, Clock, Plus, Edit, X, AlertCircle, MapPin, User, Tag } from "lucide-react";
+import {
+  Search,
+  Download,
+  Phone,
+  MessageSquare,
+  Trash2,
+  ShoppingBag,
+  Truck,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Edit,
+  X,
+  AlertCircle,
+  MapPin,
+  User,
+  Tag,
+  Home,
+  Building2
+} from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 import { getWhatsAppUrl, ALGERIA_WILAYAS, getCommunesByWilaya, isValidAlgerianPhone, cleanAlgerianPhone } from "../../data/algeriaWilayasCommunes";
 
 export function OrdersTab() {
   const { t, isRtl } = useLanguage();
-  const { data, saveOrder, updateOrderStatus, deleteOrder } = useData();
+  const { data, saveOrder, updateOrderStatus, deleteOrder, getWilayaDeliveryFee } = useData();
 
   const [orderFilter, setOrderFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
@@ -40,6 +59,8 @@ export function OrdersTab() {
       "Telephone",
       "Wilaya",
       "Commune / Adresse",
+      "Mode Livraison",
+      "Frais Livraison DZD",
       "Produit",
       "Quantite",
       "Prix Unitaire",
@@ -55,6 +76,8 @@ export function OrdersTab() {
       `"${(o.phone || "").replace(/"/g, '""')}"`,
       `"${(o.wilaya || "").replace(/"/g, '""')}"`,
       `"${(o.commune || "").replace(/"/g, '""')}"`,
+      o.deliveryType === "desk" ? "Bureau (Stop Desk)" : "A Domicile (Maison)",
+      o.deliveryFee || 0,
       `"${(o.productName || "").replace(/"/g, '""')}"`,
       o.quantity || 1,
       o.productPrice || 0,
@@ -76,16 +99,23 @@ export function OrdersTab() {
   const handleOpenAdd = () => {
     const firstProd = products[0];
     const initialPrice = firstProd ? firstProd.price : 8500;
+    const defaultWilaya = "09 - Blida";
+    const wilayaFee = getWilayaDeliveryFee ? getWilayaDeliveryFee(defaultWilaya) : { home: 350, desk: 200 };
+    const initialFee = wilayaFee.home || 350;
+
     setEditingOrder({
       customerName: "",
       phone: "",
-      wilaya: "09 - Blida",
+      wilaya: defaultWilaya,
       commune: "",
+      deliveryType: "home",
+      deliveryFee: initialFee,
       productId: firstProd?.id || "",
       productName: firstProd?.nameFr || "Projecteur Bi-LED",
       productPrice: initialPrice,
       quantity: 1,
-      total: initialPrice,
+      subtotal: initialPrice,
+      total: initialPrice + initialFee,
       vehicleNote: "",
       status: "nouveau"
     });
@@ -96,7 +126,11 @@ export function OrdersTab() {
   const handleOpenEdit = (order) => {
     const qty = order.quantity || 1;
     const price = order.productPrice || 0;
-    const total = order.total !== undefined ? order.total : (price * qty);
+    const sub = order.subtotal !== undefined ? order.subtotal : (price * qty);
+    const wilayaFee = getWilayaDeliveryFee ? getWilayaDeliveryFee(order.wilaya) : { home: 500, desk: 300 };
+    const curType = order.deliveryType || "home";
+    const curFee = order.deliveryFee !== undefined ? order.deliveryFee : (curType === "desk" ? wilayaFee.desk : wilayaFee.home);
+    const tot = order.total !== undefined ? order.total : (sub + curFee);
 
     setEditingOrder({
       ...order,
@@ -104,11 +138,14 @@ export function OrdersTab() {
       phone: order.phone || "",
       wilaya: order.wilaya || "09 - Blida",
       commune: order.commune || "",
+      deliveryType: curType,
+      deliveryFee: curFee,
       productId: order.productId || "",
       productName: order.productName || "",
       productPrice: price,
       quantity: qty,
-      total: total,
+      subtotal: sub,
+      total: tot,
       vehicleNote: order.vehicleNote || "",
       status: order.status || "nouveau"
     });
@@ -129,12 +166,15 @@ export function OrdersTab() {
     const found = products.find((p) => p.id === selectedProdId);
     if (found) {
       const qty = Number(editingOrder.quantity) || 1;
+      const fee = Number(editingOrder.deliveryFee) || 0;
+      const sub = (found.price || 0) * qty;
       setEditingOrder((prev) => ({
         ...prev,
         productId: found.id,
         productName: found.nameFr || found.nameAr || "",
         productPrice: found.price || 0,
-        total: (found.price || 0) * qty
+        subtotal: sub,
+        total: sub + fee
       }));
     }
   };
@@ -157,7 +197,9 @@ export function OrdersTab() {
     try {
       const qty = Math.max(1, Number(editingOrder.quantity) || 1);
       const price = Number(editingOrder.productPrice) || 0;
-      const finalTotal = editingOrder.total !== undefined ? Number(editingOrder.total) : (price * qty);
+      const sub = price * qty;
+      const fee = Number(editingOrder.deliveryFee) || 0;
+      const finalTotal = editingOrder.total !== undefined ? Number(editingOrder.total) : (sub + fee);
 
       const payload = {
         ...editingOrder,
@@ -165,6 +207,9 @@ export function OrdersTab() {
         phone: cleanAlgerianPhone(editingOrder.phone),
         quantity: qty,
         productPrice: price,
+        deliveryType: editingOrder.deliveryType || "home",
+        deliveryFee: fee,
+        subtotal: sub,
         total: finalTotal
       };
       await saveOrder(payload);
@@ -307,7 +352,7 @@ export function OrdersTab() {
                 </div>
 
                 {/* Client & Destination */}
-                <div className="pt-2 border-t border-zinc-800/80 space-y-1">
+                <div className="pt-2 border-t border-zinc-800/80 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <div className="font-bold text-white flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-zinc-400" />
@@ -318,11 +363,17 @@ export function OrdersTab() {
                       <span>{o.wilaya}</span>
                     </div>
                   </div>
-                  {o.commune && (
-                    <div className="text-[11px] text-zinc-400 pl-5 rtl:pl-0 rtl:pr-5">
-                      {o.commune}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400 pl-5 rtl:pl-0 rtl:pr-5">
+                    <span>{o.commune || ""}</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      o.deliveryType === "desk"
+                        ? "bg-sky-950/70 border border-sky-500/40 text-sky-300"
+                        : "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
+                    }`}>
+                      {o.deliveryType === "desk" ? <Building2 className="w-3 h-3 text-sky-400" /> : <Home className="w-3 h-3 text-emerald-400" />}
+                      <span>{o.deliveryType === "desk" ? "Bureau" : "Maison"} {o.deliveryFee ? `(+${o.deliveryFee} DZD)` : ""}</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Product & Vehicle Note */}
@@ -478,7 +529,7 @@ export function OrdersTab() {
                         )}
                       </td>
 
-                      {/* Wilaya & Address */}
+                      {/* Wilaya & Address & Delivery Mode */}
                       <td className="p-3.5 px-4">
                         <div className="font-bold text-emerald-400 text-xs">
                           {o.wilaya}
@@ -488,6 +539,16 @@ export function OrdersTab() {
                             {o.commune}
                           </div>
                         )}
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            o.deliveryType === "desk"
+                              ? "bg-sky-950/70 border border-sky-500/40 text-sky-300"
+                              : "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
+                          }`}>
+                            {o.deliveryType === "desk" ? <Building2 className="w-3 h-3 text-sky-400" /> : <Home className="w-3 h-3 text-emerald-400" />}
+                            <span>{o.deliveryType === "desk" ? "Bureau" : "Maison"} {o.deliveryFee ? `(+${o.deliveryFee} DZD)` : ""}</span>
+                          </span>
+                        </div>
                       </td>
 
                       {/* Product & Quantity */}
@@ -512,8 +573,15 @@ export function OrdersTab() {
                       </td>
 
                       {/* Total Price */}
-                      <td className="p-3.5 px-4 font-mono font-black text-white text-sm whitespace-nowrap">
-                        {totalVal?.toLocaleString()} DZD
+                      <td className="p-3.5 px-4 font-mono whitespace-nowrap">
+                        <div className="font-black text-white text-sm">
+                          {totalVal?.toLocaleString()} DZD
+                        </div>
+                        {o.deliveryFee !== undefined && (
+                          <div className="text-[10px] text-zinc-400">
+                            dont livr. {o.deliveryFee} DZD
+                          </div>
+                        )}
                       </td>
 
                       {/* Status Selector */}
@@ -677,10 +745,17 @@ export function OrdersTab() {
                     onChange={(e) => {
                       const newWilaya = e.target.value;
                       const communes = getCommunesByWilaya(newWilaya);
+                      const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(newWilaya) : { home: 500, desk: 300 };
+                      const curType = editingOrder.deliveryType || "home";
+                      const newFee = curType === "desk" ? (feeObj.desk || 0) : (feeObj.home || 0);
+                      const qty = Number(editingOrder.quantity) || 1;
+                      const price = Number(editingOrder.productPrice) || 0;
                       setEditingOrder({
                         ...editingOrder,
                         wilaya: newWilaya,
-                        commune: communes[0] || ""
+                        commune: communes[0] || "",
+                        deliveryFee: newFee,
+                        total: (price * qty) + newFee
                       });
                     }}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
@@ -716,6 +791,87 @@ export function OrdersTab() {
                       className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
                     />
                   )}
+                </div>
+              </div>
+
+              {/* Delivery Mode & Delivery Fee */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "طريقة التوصيل" : "Mode de livraison"}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
+                        const newFee = feeObj.home || 0;
+                        const qty = Number(editingOrder.quantity) || 1;
+                        const price = Number(editingOrder.productPrice) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          deliveryType: "home",
+                          deliveryFee: newFee,
+                          total: (price * qty) + newFee
+                        });
+                      }}
+                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        (editingOrder.deliveryType || "home") === "home"
+                          ? "bg-brand-red/20 border-brand-red text-white"
+                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      <Home className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isRtl ? "منزل" : "Maison"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
+                        const newFee = feeObj.desk || 0;
+                        const qty = Number(editingOrder.quantity) || 1;
+                        const price = Number(editingOrder.productPrice) || 0;
+                        setEditingOrder({
+                          ...editingOrder,
+                          deliveryType: "desk",
+                          deliveryFee: newFee,
+                          total: (price * qty) + newFee
+                        });
+                      }}
+                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        editingOrder.deliveryType === "desk"
+                          ? "bg-brand-red/20 border-brand-red text-white"
+                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{isRtl ? "مكتب" : "Bureau (Stop Desk)"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-zinc-300 font-bold mb-1">
+                    {isRtl ? "تكلفة التوصيل (د.ج)" : "Frais de livraison (DZD)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={editingOrder.deliveryFee ?? 0}
+                    onChange={(e) => {
+                      const newFee = Math.max(0, parseInt(e.target.value, 10) || 0);
+                      const qty = Number(editingOrder.quantity) || 1;
+                      const price = Number(editingOrder.productPrice) || 0;
+                      setEditingOrder({
+                        ...editingOrder,
+                        deliveryFee: newFee,
+                        total: (price * qty) + newFee
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red"
+                  />
                 </div>
               </div>
 
@@ -763,10 +919,11 @@ export function OrdersTab() {
                     onChange={(e) => {
                       const newQty = Math.max(1, parseInt(e.target.value, 10) || 1);
                       const price = Number(editingOrder.productPrice) || 0;
+                      const fee = Number(editingOrder.deliveryFee) || 0;
                       setEditingOrder({
                         ...editingOrder,
                         quantity: newQty,
-                        total: price * newQty
+                        total: (price * newQty) + fee
                       });
                     }}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
@@ -787,10 +944,11 @@ export function OrdersTab() {
                     onChange={(e) => {
                       const newPrice = Math.max(0, parseInt(e.target.value, 10) || 0);
                       const qty = Number(editingOrder.quantity) || 1;
+                      const fee = Number(editingOrder.deliveryFee) || 0;
                       setEditingOrder({
                         ...editingOrder,
                         productPrice: newPrice,
-                        total: newPrice * qty
+                        total: (newPrice * qty) + fee
                       });
                     }}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
@@ -800,7 +958,7 @@ export function OrdersTab() {
                 {/* Total */}
                 <div>
                   <label className="block text-zinc-300 font-bold mb-1">
-                    {isRtl ? "المجموع (د.ج)" : "Total (DZD)"}
+                    {isRtl ? "المجموع الكلي (د.ج)" : "Total (DZD)"}
                   </label>
                   <input
                     type="number"

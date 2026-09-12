@@ -24,17 +24,20 @@ import {
   AlertCircle,
   Plus,
   Minus,
-  ShieldCheck
+  ShieldCheck,
+  Home,
+  Building2
 } from "lucide-react";
 
 export function OrderModal({ isOpen, onClose, product = null }) {
   const { t, isRtl } = useLanguage();
-  const { data, createOrder } = useData();
+  const { data, createOrder, getWilayaDeliveryFee } = useData();
 
   const settings = data?.settings || {};
   const primaryPhone = getPrimaryPhone(settings);
 
   const [quantity, setQuantity] = useState(1);
+  const [deliveryType, setDeliveryType] = useState("home"); // "home" | "desk"
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -49,12 +52,15 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   const [errorMsg, setErrorMsg] = useState("");
 
   const availableCommunes = getCommunesByWilaya(formData.wilaya);
+  const wilayaFee = getWilayaDeliveryFee ? getWilayaDeliveryFee(formData.wilaya) : { home: 600, desk: 350, active: true };
+  const isWilayaActive = wilayaFee?.active !== false;
   const isPhoneValid = isValidAlgerianPhone(formData.phone);
   const isPhoneInvalid = phoneTouched && formData.phone.length > 0 && !isPhoneValid;
 
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
+      setDeliveryType("home");
       setSuccessOrder(null);
       setErrorMsg("");
       setPhoneTouched(false);
@@ -64,7 +70,11 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   if (!isOpen || !product) return null;
 
   const unitPrice = Number(product.price) || 0;
-  const totalPrice = unitPrice * quantity;
+  const subtotal = unitPrice * quantity;
+  const currentDeliveryFee = formData.wilaya && isWilayaActive
+    ? (deliveryType === "desk" ? Number(wilayaFee?.desk || 0) : Number(wilayaFee?.home || 0))
+    : 0;
+  const finalTotal = subtotal + currentDeliveryFee;
   const productTitle = isRtl ? product.nameAr || product.nameFr : product.nameFr;
 
   const handleWilayaChange = (e) => {
@@ -96,6 +106,11 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       return;
     }
 
+    if (formData.wilaya && !isWilayaActive) {
+      setErrorMsg(isRtl ? "خدمة التوصيل لهذه الولاية متوقفة مؤقتاً." : "La livraison vers cette wilaya est momentanément suspendue.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const cleanPhone = cleanAlgerianPhone(formData.phone);
@@ -104,7 +119,11 @@ export function OrderModal({ isOpen, onClose, product = null }) {
         phone: cleanPhone,
         wilaya: formData.wilaya.trim(),
         commune: formData.commune.trim(),
+        deliveryType,
+        deliveryFee: currentDeliveryFee,
         quantity,
+        subtotal,
+        total: finalTotal,
         vehicleNote: formData.vehicleNote.trim(),
         productId: product.id,
         productName: product.nameFr,
@@ -114,7 +133,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
 
       const res = await createOrder(payload);
       if (res && res.success) {
-        setSuccessOrder(res.order || { ...payload, id: "cmd-" + Date.now(), total: totalPrice });
+        setSuccessOrder(res.order || { ...payload, id: "cmd-" + Date.now(), total: finalTotal });
         try {
           confetti({
             particleCount: 90,
@@ -139,13 +158,20 @@ export function OrderModal({ isOpen, onClose, product = null }) {
       phone: cleanAlgerianPhone(formData.phone),
       wilaya: formData.wilaya,
       commune: formData.commune,
+      deliveryType,
+      deliveryFee: currentDeliveryFee,
+      subtotal,
       vehicleNote: formData.vehicleNote,
-      total: totalPrice
+      total: finalTotal
     };
 
+    const typeStr = (order.deliveryType || deliveryType) === "desk"
+      ? (isRtl ? "استلام من مكتب التوصيل (Stop Desk)" : "Au Bureau (Stop Desk)")
+      : (isRtl ? "توصيل للمنزل (À Domicile)" : "À Domicile (Maison)");
+
     const msg = isRtl
-      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع: ${order.total?.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
-      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Total: ${order.total?.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
+      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع الفرعي: ${order.subtotal?.toLocaleString() || subtotal.toLocaleString()} د.ج\n- طريقة التوصيل: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} د.ج)\n- المجموع الكلي للدفع: ${order.total?.toLocaleString() || finalTotal.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
+      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Sous-total: ${order.subtotal?.toLocaleString() || subtotal.toLocaleString()} DZD\n- Mode de livraison: ${typeStr} (+${(order.deliveryFee ?? currentDeliveryFee).toLocaleString()} DZD)\n- Total à payer: ${order.total?.toLocaleString() || finalTotal.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
 
     return getWhatsAppUrl(primaryPhone, msg);
   };
@@ -197,7 +223,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                   </div>
                 </div>
                 <div className="font-mono font-black text-brand-redLight text-sm">
-                  {totalPrice.toLocaleString()} DZD
+                  {(successOrder.total || finalTotal).toLocaleString()} DZD
                 </div>
               </div>
 
@@ -210,9 +236,25 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                   <span className="text-zinc-500 block">Téléphone :</span>
                   <span className="text-white font-semibold">{successOrder.phone}</span>
                 </div>
-                <div className="col-span-2">
+                <div>
+                  <span className="text-zinc-500 block">Mode de livraison :</span>
+                  <span className="text-white font-semibold flex items-center gap-1 mt-0.5">
+                    {successOrder.deliveryType === "desk" ? (
+                      <>
+                        <Building2 className="w-3 h-3 text-sky-400" />
+                        <span>Bureau / Agence ({successOrder.deliveryFee || currentDeliveryFee} DZD)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Home className="w-3 h-3 text-emerald-400" />
+                        <span>À Domicile ({successOrder.deliveryFee || currentDeliveryFee} DZD)</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div>
                   <span className="text-zinc-500 block">Destination :</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-white font-semibold truncate block mt-0.5">
                     {successOrder.wilaya} {successOrder.commune ? `(${successOrder.commune})` : ""}
                   </span>
                 </div>
@@ -406,6 +448,93 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                 </div>
               </div>
 
+              {/* Delivery Mode: Domicile (Maison) vs Bureau (Stop Desk) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <label className="font-semibold text-zinc-300">
+                    {t.order.form.deliveryMode || (isRtl ? "طريقة التوصيل والاستلام *" : "Mode de livraison *")}
+                  </label>
+                  {formData.wilaya && (
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      {formData.wilaya.split(" - ")[1] || formData.wilaya}
+                    </span>
+                  )}
+                </div>
+
+                {!isWilayaActive && formData.wilaya ? (
+                  <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>{isRtl ? "خدمة التوصيل لهذه الولاية متوقفة مؤقتاً." : "La livraison vers cette wilaya est momentanément suspendue."}</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Home / Maison Option */}
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryType("home")}
+                      className={`p-3 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
+                        deliveryType === "home"
+                          ? "bg-brand-red/15 border-brand-red text-white shadow-glow-red/20"
+                          : "bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          deliveryType === "home" ? "bg-brand-red text-white" : "bg-zinc-800 text-zinc-400"
+                        }`}>
+                          <Home className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs sm:text-sm truncate text-white">
+                            {t.order.form.deliveryHome || (isRtl ? "توصيل للمنزل" : "À Domicile")}
+                          </div>
+                          <div className="text-[10px] text-zinc-400">
+                            {isRtl ? "توصيل للباب (Maison)" : "Livraison directe à domicile"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-end shrink-0 pl-2 rtl:pl-0 rtl:pr-2">
+                        <span className="font-mono font-black text-xs sm:text-sm text-emerald-400">
+                          {formData.wilaya ? `${wilayaFee.home.toLocaleString()} DZD` : "-- DZD"}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Desk / Bureau Option */}
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryType("desk")}
+                      className={`p-3 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
+                        deliveryType === "desk"
+                          ? "bg-brand-red/15 border-brand-red text-white shadow-glow-red/20"
+                          : "bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          deliveryType === "desk" ? "bg-brand-red text-white" : "bg-zinc-800 text-zinc-400"
+                        }`}>
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs sm:text-sm truncate text-white">
+                            {t.order.form.deliveryDesk || (isRtl ? "مكتب التوصيل" : "Au Bureau")}
+                          </div>
+                          <div className="text-[10px] text-zinc-400">
+                            {isRtl ? "استلام بالوكالة (Stop Desk)" : "Récupération Stop Desk"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-end shrink-0 pl-2 rtl:pl-0 rtl:pr-2">
+                        <span className="font-mono font-black text-xs sm:text-sm text-sky-400">
+                          {formData.wilaya ? `${wilayaFee.desk.toLocaleString()} DZD` : "-- DZD"}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Quantity Stepper & Vehicle Note */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div>
@@ -458,18 +587,40 @@ export function OrderModal({ isOpen, onClose, product = null }) {
               </div>
 
               {/* Total Calculation Strip */}
-              <div className="p-4 rounded-2xl bg-brand-red/10 border border-brand-red/30 flex items-center justify-between">
-                <div>
-                  <div className="text-[11px] text-zinc-400 uppercase font-bold tracking-wider">
-                    {t.order.form.totalPrice}
-                  </div>
-                  <div className="text-[11px] text-zinc-500">
-                    {t.order.form.paymentInfo}
-                  </div>
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>{t.order.form.subtotal || (isRtl ? "المجموع الفرعي" : "Sous-total articles")} ({quantity} × {unitPrice.toLocaleString()} DZD)</span>
+                  <span className="font-mono font-bold text-zinc-200">{subtotal.toLocaleString()} DZD</span>
                 </div>
-                <div className="text-2xl font-black font-mono text-white">
-                  {totalPrice.toLocaleString()}{" "}
-                  <span className="text-brand-redLight text-base">{t.products.currency}</span>
+
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>
+                      {t.order.form.deliveryFee || (isRtl ? "تكلفة التوصيل" : "Frais de livraison")} (
+                      {deliveryType === "desk" ? (isRtl ? "مكتب" : "Bureau") : (isRtl ? "منزل" : "Maison")}
+                      {formData.wilaya ? ` - ${formData.wilaya.split(" - ")[1] || formData.wilaya}` : ""}
+                      )
+                    </span>
+                  </span>
+                  <span className="font-mono font-bold text-emerald-400">
+                    {formData.wilaya ? `+${currentDeliveryFee.toLocaleString()} DZD` : (isRtl ? "اختر الولاية أولاً" : "Sélectionnez wilaya")}
+                  </span>
+                </div>
+
+                <div className="border-t border-zinc-800 pt-2 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-zinc-400 uppercase font-bold tracking-wider">
+                      {t.order.form.totalToPay || t.order.form.totalPrice}
+                    </div>
+                    <div className="text-[10px] text-zinc-500">
+                      {t.order.form.paymentInfo}
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black font-mono text-white">
+                    {finalTotal.toLocaleString()}{" "}
+                    <span className="text-brand-redLight text-base">{t.products.currency}</span>
+                  </div>
                 </div>
               </div>
 

@@ -59,3 +59,48 @@ export function getWhatsAppUrl(phone, message = '') {
   return message ? `${baseUrl}?text=${encodeURIComponent(message)}` : baseUrl;
 }
 
+/**
+ * Calculates standard default delivery prices (Home & Bureau) for Algerian wilayas.
+ */
+export function getDefaultDeliveryFee(wilayaKey) {
+  if (!wilayaKey) return { home: 700, desk: 450, active: true };
+  const num = parseInt(wilayaKey.split(" - ")[0], 10);
+
+  if (num === 9) {
+    // 09 - Blida (Wilaya atelier)
+    return { home: 350, desk: 200, active: true };
+  }
+  if ([16, 42, 35, 26].includes(num)) {
+    // Alger, Tipaza, Boumerdès, Médéa
+    return { home: 500, desk: 300, active: true };
+  }
+  if ([2, 10, 15, 44].includes(num)) {
+    // Chlef, Bouira, Tizi Ouzou, Aïn Defla
+    return { home: 600, desk: 350, active: true };
+  }
+  if ([6, 13, 18, 19, 21, 23, 25, 27, 31].includes(num)) {
+    // Béjaïa, Tlemcen, Jijel, Sétif, Skikda, Annaba, Constantine, Mostaganem, Oran
+    return { home: 650, desk: 400, active: true };
+  }
+  if ([1, 11, 33, 37, 49, 50, 52, 53, 54, 56].includes(num)) {
+    // Grand Sud / Sahara : Adrar, Tamanrasset, Illizi, Tindouf, Timimoun, Bordj Badji Mokhtar, Béni Abbès, In Salah, In Guezzam, Djanet
+    return { home: 1300, desk: 850, active: true };
+  }
+  if ([3, 7, 8, 17, 30, 32, 39, 45, 47, 51, 55, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68].includes(num)) {
+    // Sud & Hauts Plateaux Sud : Laghouat, Biskra, Béchar, Djelfa, Ouargla, El Bayadh, El Oued, Naâma, Ghardaïa, etc.
+    return { home: 900, desk: 550, active: true };
+  }
+  // Standard wilayas
+  return { home: 700, desk: 450, active: true };
+}
+
+/**
+ * Returns a complete map of all 69 wilayas with default delivery rates.
+ */
+export function generateInitialDeliveryFees() {
+  const fees = {};
+  ALGERIA_WILAYAS.forEach((w) => {
+    fees[w] = getDefaultDeliveryFee(w);
+  });
+  return fees;
+}
