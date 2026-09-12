@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
+import { isValidAlgerianPhone, cleanAlgerianPhone } from "../data/algeriaWilayasCommunes";
 import confetti from "canvas-confetti";
 import {
   Calendar,
@@ -33,9 +34,13 @@ export function BookingModal({ isOpen, onClose, initialProduct = null }) {
     message: ""
   });
 
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successApt, setSuccessApt] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const isPhoneValid = isValidAlgerianPhone(formData.phone);
+  const isPhoneInvalid = phoneTouched && formData.phone.length > 0 && !isPhoneValid;
 
   useEffect(() => {
     if (initialProduct) {
@@ -46,22 +51,39 @@ export function BookingModal({ isOpen, onClose, initialProduct = null }) {
     }
   }, [initialProduct]);
 
+  useEffect(() => {
+    if (isOpen) {
+      setErrorMsg("");
+      setPhoneTouched(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
+    setPhoneTouched(true);
 
     if (!formData.name.trim() || !formData.phone.trim() || !formData.vehicle.trim()) {
       setErrorMsg(isRtl ? "يرجى ملء جميع الحقول الإلزامية (*)" : "Veuillez remplir les champs obligatoires (*)");
       return;
     }
 
+    if (!isValidAlgerianPhone(formData.phone)) {
+      setErrorMsg(t.booking.form.phoneError || (isRtl ? "رقم الهاتف غير صحيح. يجب أن يتكون من 10 أرقام ويبدأ بـ 05 أو 06 أو 07." : "Numéro de téléphone incorrect. Il doit comporter 10 chiffres et commencer par 05, 06 ou 07."));
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const res = await createAppointment(formData);
+      const payload = {
+        ...formData,
+        phone: cleanAlgerianPhone(formData.phone)
+      };
+      const res = await createAppointment(payload);
       if (res && res.success) {
-        setSuccessApt(res.appointment || formData);
+        setSuccessApt(res.appointment || payload);
         confetti({
           particleCount: 80,
           spread: 70,
@@ -198,18 +220,40 @@ export function BookingModal({ isOpen, onClose, initialProduct = null }) {
               {/* Phone & Vehicle Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="font-semibold text-zinc-300 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-brand-red" />
-                    {t.booking.form.phone}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-brand-red" />
+                      {t.booking.form.phone}
+                    </label>
+                    {isPhoneValid && (
+                      <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>{isRtl ? "رقم صحيح" : "Numéro valide"}</span>
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="tel"
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder={t.booking.form.phonePlaceholder}
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red font-mono"
+                    onBlur={() => setPhoneTouched(true)}
+                    placeholder="05 / 06 / 07..."
+                    maxLength={14}
+                    className={`w-full px-4 py-2.5 rounded-xl bg-zinc-900 border text-white placeholder-zinc-500 focus:outline-none font-mono transition-all ${
+                      isPhoneValid
+                        ? "border-emerald-500/80 focus:border-emerald-500"
+                        : isPhoneInvalid
+                        ? "border-rose-500 focus:border-rose-500 bg-rose-950/20"
+                        : "border-zinc-700 focus:border-brand-red"
+                    }`}
                   />
+                  {isPhoneInvalid && (
+                    <p className="text-[11px] text-rose-400 mt-1 flex items-start gap-1 font-medium leading-tight">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{t.booking.form.phoneError}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1">

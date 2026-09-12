@@ -1,7 +1,12 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
-import { ALGERIA_WILAYAS } from "../i18n/translations";
+import {
+  ALGERIA_WILAYAS,
+  getCommunesByWilaya,
+  isValidAlgerianPhone,
+  cleanAlgerianPhone
+} from "../data/algeriaWilayasCommunes";
 import confetti from "canvas-confetti";
 import {
   ShoppingBag,
@@ -36,15 +41,21 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     vehicleNote: ""
   });
 
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successOrder, setSuccessOrder] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const availableCommunes = getCommunesByWilaya(formData.wilaya);
+  const isPhoneValid = isValidAlgerianPhone(formData.phone);
+  const isPhoneInvalid = phoneTouched && formData.phone.length > 0 && !isPhoneValid;
 
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
       setSuccessOrder(null);
       setErrorMsg("");
+      setPhoneTouched(false);
     }
   }, [isOpen, product]);
 
@@ -54,20 +65,41 @@ export function OrderModal({ isOpen, onClose, product = null }) {
   const totalPrice = unitPrice * quantity;
   const productTitle = isRtl ? product.nameAr || product.nameFr : product.nameFr;
 
+  const handleWilayaChange = (e) => {
+    const val = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      wilaya: val,
+      commune: "" // Reset commune when wilaya changes
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
+    setPhoneTouched(true);
 
-    if (!formData.customerName.trim() || !formData.phone.trim() || !formData.wilaya.trim()) {
-      setErrorMsg(isRtl ? "يرجى ملء الاسم، رقم الهاتف والولاية (*)" : "Veuillez remplir le nom, téléphone et la wilaya (*)");
+    if (!formData.customerName.trim() || !formData.phone.trim() || !formData.wilaya.trim() || !formData.commune.trim()) {
+      setErrorMsg(isRtl ? "يرجى ملء الاسم، رقم الهاتف، ولاية وبلدية التوصيل (*)" : "Veuillez remplir le nom, téléphone, la wilaya et la commune (*)");
+      return;
+    }
+
+    if (!isValidAlgerianPhone(formData.phone)) {
+      setErrorMsg(t.order.form.phoneError);
+      return;
+    }
+
+    if (!formData.commune.trim()) {
+      setErrorMsg(t.order.form.communeRequired);
       return;
     }
 
     setSubmitting(true);
     try {
+      const cleanPhone = cleanAlgerianPhone(formData.phone);
       const payload = {
         customerName: formData.customerName.trim(),
-        phone: formData.phone.trim(),
+        phone: cleanPhone,
         wilaya: formData.wilaya.trim(),
         commune: formData.commune.trim(),
         quantity,
@@ -102,7 +134,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     const order = successOrder || {
       id: "CMD-" + Date.now(),
       customerName: formData.customerName,
-      phone: formData.phone,
+      phone: cleanAlgerianPhone(formData.phone),
       wilaya: formData.wilaya,
       commune: formData.commune,
       vehicleNote: formData.vehicleNote,
@@ -110,8 +142,8 @@ export function OrderModal({ isOpen, onClose, product = null }) {
     };
 
     const msg = isRtl
-      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع: ${order.total?.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n${order.commune ? `- البلدية / العنوان: ${order.commune}\n` : ""}${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
-      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Total: ${order.total?.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n${order.commune ? `- Commune / Adresse: ${order.commune}\n` : ""}${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
+      ? `سلام عليكم متجر أوتو ليد البليدة، قمت بتأكيد طلبية شراء عبر الموقع:\n- رقم الطلبية: ${order.id}\n- المنتج: ${productTitle}\n- الكمية: ${quantity}\n- المجموع: ${order.total?.toLocaleString()} د.ج\n- الاسم: ${order.customerName}\n- الهاتف: ${order.phone}\n- ولاية التوصيل: ${order.wilaya}\n- بلدية التوصيل: ${order.commune}\n${order.vehicleNote ? `- نوع السيارة: ${order.vehicleNote}\n` : ""}يرجى تأكيد إرسال الطرد مع شركة التوصيل. شكراً.`
+      : `Bonjour AutoLedBlida, j'ai passé commande sur votre site:\n- Réf Commande: ${order.id}\n- Produit: ${product.nameFr}\n- Quantité: ${quantity}\n- Total: ${order.total?.toLocaleString()} DZD\n- Nom: ${order.customerName}\n- Téléphone: ${order.phone}\n- Wilaya de livraison: ${order.wilaya}\n- Commune de livraison: ${order.commune}\n${order.vehicleNote ? `- Véhicule: ${order.vehicleNote}\n` : ""}Merci de confirmer l'expédition avec le livreur.`;
 
     const cleanNum = whatsappNumber.replace(/^0/, "");
     return `https://wa.me/213${cleanNum}?text=${encodeURIComponent(msg)}`;
@@ -278,24 +310,48 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                 </div>
 
                 <div>
-                  <label className="font-semibold text-zinc-300 block mb-1">
-                    {t.order.form.phone}
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-zinc-300 block">
+                      {t.order.form.phone}
+                    </label>
+                    {isPhoneValid && (
+                      <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>{isRtl ? "رقم صحيح" : "Numéro valide"}</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-zinc-400 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3" />
+                    <Phone className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3 transition-colors ${
+                      isPhoneValid ? "text-emerald-400" : isPhoneInvalid ? "text-rose-400" : "text-zinc-400"
+                    }`} />
                     <input
                       type="tel"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder={t.order.form.phonePlaceholder}
-                      className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red font-mono"
+                      onBlur={() => setPhoneTouched(true)}
+                      placeholder="05 / 06 / 07..."
+                      maxLength={14}
+                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white placeholder-zinc-500 focus:outline-none font-mono transition-all ${
+                        isPhoneValid
+                          ? "border-emerald-500/80 focus:border-emerald-500"
+                          : isPhoneInvalid
+                          ? "border-rose-500 focus:border-rose-500 bg-rose-950/20"
+                          : "border-zinc-700 focus:border-brand-red"
+                      }`}
                     />
                   </div>
+                  {isPhoneInvalid && (
+                    <p className="text-[11px] text-rose-400 mt-1 flex items-start gap-1 font-medium leading-tight">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{t.order.form.phoneError}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Wilaya & Commune */}
+              {/* Wilaya & Commune Dropdowns */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="font-semibold text-zinc-300 block mb-1">
@@ -306,7 +362,7 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                     <select
                       required
                       value={formData.wilaya}
-                      onChange={(e) => setFormData({ ...formData, wilaya: e.target.value })}
+                      onChange={handleWilayaChange}
                       className="w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
                     >
                       <option value="">{t.order.form.selectWilaya}</option>
@@ -323,14 +379,29 @@ export function OrderModal({ isOpen, onClose, product = null }) {
                   <label className="font-semibold text-zinc-300 block mb-1">
                     {t.order.form.commune}
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.commune}
-                    onChange={(e) => setFormData({ ...formData, commune: e.target.value })}
-                    placeholder={t.order.form.communePlaceholder}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-brand-red"
-                  />
+                  <div className="relative">
+                    <MapPin className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 left-3 rtl:left-auto rtl:right-3 pointer-events-none ${
+                      !formData.wilaya ? "text-zinc-600" : "text-zinc-400"
+                    }`} />
+                    <select
+                      required
+                      disabled={!formData.wilaya}
+                      value={formData.commune}
+                      onChange={(e) => setFormData({ ...formData, commune: e.target.value })}
+                      className={`w-full pl-9 pr-3.5 rtl:pl-3.5 rtl:pr-9 py-2.5 rounded-xl bg-zinc-900 border text-white focus:outline-none focus:border-brand-red transition-all ${
+                        !formData.wilaya ? "opacity-50 cursor-not-allowed border-zinc-800 text-zinc-500" : "border-zinc-700"
+                      }`}
+                    >
+                      <option value="">
+                        {!formData.wilaya ? t.order.form.selectWilayaFirst : t.order.form.selectCommune}
+                      </option>
+                      {availableCommunes.map((comm) => (
+                        <option key={comm} value={comm}>
+                          {comm}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 

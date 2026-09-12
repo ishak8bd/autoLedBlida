@@ -203,6 +203,17 @@
   ],
   "appointments": [
     {
+      "id": "apt-1789175282149",
+      "name": "Yacine Belkacem",
+      "phone": "0770123456",
+      "vehicle": "Golf 7 GTD",
+      "service": "Installation LED / Phares",
+      "preferredDate": "2026-09-12",
+      "message": "",
+      "status": "nouveau",
+      "createdAt": "2026-09-12T01:08:02.149Z"
+    },
+    {
       "id": "apt-1789168369061",
       "name": "Yacine Belkacem",
       "phone": "0555112233",
@@ -283,6 +294,22 @@
     }
   ],
   "orders": [
+    {
+      "id": "cmd-1789175282133",
+      "customerName": "Mohamed Amine",
+      "phone": "0661147039",
+      "wilaya": "09 - Blida",
+      "commune": "Ouled Yaïch",
+      "quantity": 1,
+      "vehicleNote": "",
+      "productId": "",
+      "productName": "Kit Bi-LED",
+      "productImage": "",
+      "productPrice": 0,
+      "total": 0,
+      "status": "nouveau",
+      "createdAt": "2026-09-12T01:08:02.133Z"
+    },
     {
       "id": "cmd-1789172225133",
       "customerName": "Walid Dahmani",

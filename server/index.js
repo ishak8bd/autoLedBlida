@@ -44,11 +44,30 @@ app.get("/api/data", (req, res) => {
   res.json(data);
 });
 
+// Helpers for phone validation
+function cleanAlgerianPhone(phone) {
+  if (!phone) return "";
+  return String(phone).replace(/[\s\-\.]/g, "");
+}
+
+function isValidAlgerianPhone(phone) {
+  const clean = cleanAlgerianPhone(phone);
+  return /^0[567][0-9]{8}$/.test(clean);
+}
+
 // 2. Public endpoint: Submit appointment
 app.post("/api/appointments", (req, res) => {
   const { name, phone, vehicle, service, preferredDate, message } = req.body;
-  if (!name || !phone || !vehicle) {
+  const cleanedPhone = cleanAlgerianPhone(phone);
+
+  if (!name || !cleanedPhone || !vehicle) {
     return res.status(400).json({ error: "Nom, téléphone et véhicule requis" });
+  }
+
+  if (!isValidAlgerianPhone(cleanedPhone)) {
+    return res.status(400).json({
+      error: "Numéro de téléphone incorrect (doit comporter 10 chiffres et commencer par 05, 06 ou 07)"
+    });
   }
 
   const data = readData();
@@ -57,7 +76,7 @@ app.post("/api/appointments", (req, res) => {
   const newAppointment = {
     id: "apt-" + Date.now(),
     name: name.trim(),
-    phone: phone.trim(),
+    phone: cleanedPhone,
     vehicle: vehicle.trim(),
     service: service || "Installation LED / Phares",
     preferredDate: preferredDate || new Date().toISOString().split("T")[0],
@@ -75,8 +94,16 @@ app.post("/api/appointments", (req, res) => {
 // 2b. Public endpoint: Submit product order
 app.post("/api/orders", (req, res) => {
   const { customerName, phone, wilaya, commune, quantity, vehicleNote, productId, productName, productPrice, productImage } = req.body;
-  if (!customerName || !phone || !wilaya) {
-    return res.status(400).json({ error: "Nom, téléphone et wilaya requis" });
+  const cleanedPhone = cleanAlgerianPhone(phone);
+
+  if (!customerName || !cleanedPhone || !wilaya || !commune) {
+    return res.status(400).json({ error: "Nom, téléphone, wilaya et commune requis" });
+  }
+
+  if (!isValidAlgerianPhone(cleanedPhone)) {
+    return res.status(400).json({
+      error: "Numéro de téléphone incorrect (doit comporter 10 chiffres et commencer par 05, 06 ou 07)"
+    });
   }
 
   const data = readData();
@@ -89,7 +116,7 @@ app.post("/api/orders", (req, res) => {
   const newOrder = {
     id: "cmd-" + Date.now(),
     customerName: customerName.trim(),
-    phone: phone.trim(),
+    phone: cleanedPhone,
     wilaya: wilaya.trim(),
     commune: (commune || "").trim(),
     quantity: qty,
