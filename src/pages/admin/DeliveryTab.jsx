@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Truck,
   Home,
@@ -13,7 +13,13 @@ import {
   Minus,
   Sparkles,
   MapPin,
-  X
+  X,
+  Upload,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  Check,
+  Copy
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
@@ -22,6 +28,10 @@ import {
   getDefaultDeliveryFee,
   generateInitialDeliveryFees
 } from "../../data/algeriaWilayasCommunes";
+import {
+  parseDeliveryInput,
+  exportDeliveryFeesToCsv
+} from "../../utils/deliveryParser";
 
 export function DeliveryTab() {
   const { isRtl } = useLanguage();
@@ -36,6 +46,15 @@ export function DeliveryTab() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkHomePrice, setBulkHomePrice] = useState(700);
   const [bulkDeskPrice, setBulkDeskPrice] = useState(450);
+
+  // Import File / Paste Text Modal State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importMode, setImportMode] = useState("paste"); // "paste" or "file"
+  const [pastedText, setPastedText] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [parseResult, setParseResult] = useState({ detected: {}, errors: [], totalDetected: 0 });
+  const [copiedSampleToast, setCopiedSampleToast] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Sync with data
   useEffect(() => {
@@ -133,6 +152,85 @@ export function DeliveryTab() {
     setHasChanges(true);
     setShowBulkModal(false);
   };
+  const handleTextChange = (text) => {
+    setPastedText(text);
+    const parsed = parseDeliveryInput(text, fees);
+    setParseResult(parsed);
+  };
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result;
+      setPastedText(content);
+      const parsed = parseDeliveryInput(content, fees);
+      setParseResult(parsed);
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const handleLoadSampleText = () => {
+    const sample = `09 - Blida, 200, 350
+16 - Alger, 300, 450
+31 - Oran, 400, 650
+25 - Constantine, 400, 650
+13 - Tlemcen, 400, 650
+15 - Tizi Ouzou, 350, 600
+06 - Béjaïa, 400, 650
+19 - Sétif, 400, 650
+23 - Annaba, 400, 650
+47 - Ghardaïa, 550, 900
+30 - Ouargla, 550, 900
+01 - Adrar, 850, 1300`;
+    handleTextChange(sample);
+  };
+
+  const handleExportCsv = () => {
+    const csvContent = exportDeliveryFeesToCsv(fees, ALGERIA_WILAYAS);
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `autoled_tarifs_livraison_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleApplyImport = async (andSave = false) => {
+    if (!parseResult || parseResult.totalDetected === 0) return;
+
+    const merged = { ...fees };
+    Object.entries(parseResult.detected).forEach(([wKey, val]) => {
+      merged[wKey] = {
+        ...(merged[wKey] || getDefaultDeliveryFee(wKey)),
+        desk: val.desk,
+        home: val.home,
+        active: val.active !== undefined ? val.active : true
+      };
+    });
+
+    setFees(merged);
+    setHasChanges(true);
+    setShowImportModal(false);
+
+    if (andSave) {
+      setSaving(true);
+      try {
+        await saveDeliveryFees(merged);
+        setHasChanges(false);
+        setShowSavedToast(true);
+        setTimeout(() => setShowSavedToast(false), 3500);
+      } catch (err) {
+        console.error("Error saving imported delivery fees:", err);
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
 
   return (
     <div className="space-y-6 text-start">
@@ -150,7 +248,32 @@ export function DeliveryTab() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Import file / paste text button */}
+          <button
+            onClick={() => {
+              setPastedText("");
+              setUploadedFileName("");
+              setParseResult({ detected: {}, errors: [], totalDetected: 0 });
+              setShowImportModal(true);
+            }}
+            className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-zinc-900 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+            title={isRtl ? "استيراد ملف أو لصق نص الأسعار" : "Importer un fichier ou coller du texte"}
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{isRtl ? "استيراد (ملف/نص)" : "Importer (Fichier/Texte)"}</span>
+          </button>
+
+          {/* Export CSV button */}
+          <button
+            onClick={handleExportCsv}
+            className="px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+            title={isRtl ? "تصدير ملف CSV للأسعار" : "Exporter les tarifs en CSV"}
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="hidden lg:inline">{isRtl ? "تصدير CSV" : "Exporter CSV"}</span>
+          </button>
+
           <button
             onClick={() => setShowBulkModal(true)}
             className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
@@ -355,7 +478,6 @@ export function DeliveryTab() {
           );
         })}
       </div>
-
       {/* DESKTOP VIEW: Table (visible on md+, scrollable with min-w-[720px]) */}
       <div className="hidden md:block glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
         <div className="overflow-x-auto">
@@ -560,6 +682,296 @@ export function DeliveryTab() {
               >
                 {isRtl ? "تطبيق على الولايات" : "Appliquer aux Wilayas"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT MODAL: UPLOAD FILE OR PASTE TEXT */}
+      {showImportModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-hidden"
+          onClick={() => setShowImportModal(false)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3.5 sm:px-6 sm:py-4 shrink-0 bg-zinc-900 z-10">
+              <div>
+                <h4 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{isRtl ? "استيراد أسعار التوصيل (ملف أو لصق نص)" : "Importer les Tarifs de Livraison (Fichier ou Texte)"}</span>
+                </h4>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  {isRtl
+                    ? "يمكنك لصق قائمة الأسعار أو رفع ملف CSV / TXT / JSON لتحديث أسعار الولايات دفعة واحدة."
+                    : "Téléversez un fichier CSV/TXT/JSON ou collez directement votre grille tarifaire."}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-zinc-400 hover:text-white p-1.5 rounded-xl hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs: Coller du texte / Téléverser un fichier */}
+            <div className="flex items-center gap-2 px-4 sm:px-6 pt-3 shrink-0 bg-zinc-900/60 border-b border-zinc-800/80">
+              <button
+                type="button"
+                onClick={() => setImportMode("paste")}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                  importMode === "paste"
+                    ? "border-emerald-400 text-emerald-400"
+                    : "border-transparent text-zinc-400 hover:text-white"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>{isRtl ? "لصق نص الأسعار" : "Coller du Texte"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportMode("file")}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                  importMode === "file"
+                    ? "border-emerald-400 text-emerald-400"
+                    : "border-transparent text-zinc-400 hover:text-white"
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isRtl ? "رفع ملف (CSV, TXT, JSON)" : "Téléverser un Fichier"}</span>
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 overscroll-contain scrollbar-thin">
+              {importMode === "paste" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="text-zinc-300 font-bold">
+                      {isRtl ? "الصق نص الأسعار هنا:" : "Collez votre texte ou tableau ici :"}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleLoadSampleText}
+                        className="text-amber-400 hover:text-amber-300 text-[11px] underline"
+                      >
+                        {isRtl ? "نموذج مثال" : "Exemple de format"}
+                      </button>
+                      {pastedText && (
+                        <button
+                          type="button"
+                          onClick={() => handleTextChange("")}
+                          className="text-rose-400 hover:text-rose-300 text-[11px]"
+                        >
+                          {isRtl ? "مسح" : "Effacer"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={pastedText}
+                    onChange={(e) => handleTextChange(e.target.value)}
+                    placeholder={`Exemples acceptés :
+09 - Blida, 200, 350
+16 - Alger, 300, 450
+31 - Oran : Bureau 400 DA, Domicile 650 DA
+Wilaya 25 (Constantine) : 400 / 650
+...`}
+                    className="w-full p-3 rounded-2xl bg-zinc-950 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500 placeholder-zinc-600 leading-relaxed"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-xs text-zinc-300 font-bold mb-1">
+                    {isRtl ? "اختر ملف الأسعار من جهازك:" : "Sélectionnez un fichier sur votre appareil :"}
+                  </label>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-zinc-700 hover:border-emerald-500/80 bg-zinc-950/60 rounded-2xl p-6 text-center cursor-pointer transition-all group"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.txt,.json,.tsv,text/plain,text/csv,application/json"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                      <FileSpreadsheet className="w-6 h-6" />
+                    </div>
+                    <div className="text-xs font-bold text-white mb-1">
+                      {uploadedFileName || (isRtl ? "اضغط لاختيار ملف (CSV, TXT, JSON, TSV)" : "Cliquez ou glissez un fichier CSV, TXT ou JSON")}
+                    </div>
+                    <div className="text-[11px] text-zinc-500">
+                      {isRtl ? "متوافق مع ملفات إكسل المصدرة كـ CSV أو ملفات النصوص" : "Compatible avec les exports Excel CSV, les grilles Yalidine/ZR et les fichiers texte"}
+                    </div>
+                  </div>
+
+                  {uploadedFileName && (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs">
+                      <span className="font-mono text-zinc-300 truncate max-w-xs">{uploadedFileName}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedFileName("");
+                          handleTextChange("");
+                        }}
+                        className="text-rose-400 hover:text-rose-300 text-[11px]"
+                      >
+                        {isRtl ? "حذف الملف" : "Retirer"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Helper Tools: Download template / Export current CSV */}
+              <div className="p-3 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-400 text-[11px]">
+                  {isRtl ? "تحميل نموذج فارغ أو جاهز للتعديل في Excel:" : "Modèle pré-rempli à éditer dans Excel :"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="px-3 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-[11px] flex items-center gap-1 transition-colors"
+                >
+                  <Download className="w-3 h-3 text-emerald-400" />
+                  <span>{isRtl ? "تحميل ملف CSV الـ 69 ولاية" : "Télécharger Modèle CSV"}</span>
+                </button>
+              </div>
+
+              {/* PARSE RESULTS & PREVIEW */}
+              {parseResult.totalDetected > 0 ? (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>
+                        {isRtl
+                          ? `تم التعرف بنجاح على أسعار ${parseResult.totalDetected} ولاية من أصل 69 ولاية !`
+                          : `${parseResult.totalDetected} wilayas détectées avec succès sur 69 !`}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[11px]">
+                      {parseResult.totalDetected}/69
+                    </span>
+                  </div>
+
+                  {parseResult.errors.length > 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px]">
+                      <div className="font-bold flex items-center gap-1.5 mb-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{isRtl ? `${parseResult.errors.length} أسطر تم تجاهلها أو غير مفهومة` : `${parseResult.errors.length} ligne(s) ignorée(s) ou non reconnues`}</span>
+                      </div>
+                      <div className="text-zinc-400 max-h-16 overflow-y-auto space-y-0.5 font-mono text-[10px]">
+                        {parseResult.errors.slice(0, 3).map((err, idx) => (
+                          <div key={idx}>Ligne {err.lineIndex}: "{err.line}" ({err.reason})</div>
+                        ))}
+                        {parseResult.errors.length > 3 && (
+                          <div>... et {parseResult.errors.length - 3} autres.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview Table */}
+                  <div className="rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60">
+                    <div className="p-2.5 px-3 bg-zinc-900 border-b border-zinc-800 text-xs font-bold text-zinc-300 flex items-center justify-between">
+                      <span>{isRtl ? "معاينة الأسعار المستخرجة :" : "Aperçu des tarifs extraits :"}</span>
+                      <span className="text-[11px] text-zinc-500 font-normal">
+                        {isRtl ? "المكتب / المنزل" : "Bureau / Domicile"}
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto divide-y divide-zinc-800/60 scrollbar-thin text-xs">
+                      {Object.entries(parseResult.detected).map(([wKey, newFee]) => {
+                        const currentFee = fees[wKey] || getDefaultDeliveryFee(wKey);
+                        const isDeskChanged = currentFee.desk !== newFee.desk;
+                        const isHomeChanged = currentFee.home !== newFee.home;
+
+                        return (
+                          <div key={wKey} className="p-2.5 px-3 flex items-center justify-between gap-2 hover:bg-zinc-900/40">
+                            <div className="font-medium text-white truncate max-w-[200px]">
+                              {wKey}
+                            </div>
+                            <div className="flex items-center gap-3 font-mono text-xs">
+                              <div className="text-end">
+                                <span className="text-zinc-500 text-[10px] block">Bureau</span>
+                                <span className={isDeskChanged ? "text-amber-300 font-bold" : "text-zinc-300"}>
+                                  {newFee.desk} DZD
+                                </span>
+                              </div>
+                              <div className="text-end">
+                                <span className="text-zinc-500 text-[10px] block">Maison</span>
+                                <span className={isHomeChanged ? "text-emerald-400 font-bold" : "text-zinc-300"}>
+                                  {newFee.home} DZD
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                (pastedText.trim() || uploadedFileName) && (
+                  <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>
+                      {isRtl
+                        ? "لم يتم التعرف على أي أسعار ولايات في هذا النص أو الملف. يرجى التحقق من التنسيق."
+                        : "Aucun tarif de wilaya valide n’a été détecté. Vérifiez le format (ex. 09 - Blida, 200, 350)."}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Modal Footer (Sticky) */}
+            <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 bg-zinc-900 z-10">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition-colors"
+              >
+                {isRtl ? "إلغاء" : "Annuler"}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={parseResult.totalDetected === 0}
+                  onClick={() => handleApplyImport(false)}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs transition-all flex items-center gap-1.5 border border-zinc-700"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    {isRtl
+                      ? `تطبيق (${parseResult.totalDetected})`
+                      : `Appliquer (${parseResult.totalDetected})`}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={parseResult.totalDetected === 0 || saving}
+                  onClick={() => handleApplyImport(true)}
+                  className="px-5 py-2 rounded-xl bg-brand-red hover:bg-brand-redDark disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs transition-all shadow-glow-red flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>
+                    {isRtl
+                      ? `تطبيق وحفظ الآن`
+                      : `Appliquer & Enregistrer`}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
