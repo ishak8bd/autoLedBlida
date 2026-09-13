@@ -87,51 +87,217 @@ export function DataProvider({ children }) {
     return { success: true, appointment: fallbackApt };
   };
 
-  // 2. Admin: Verify PIN
-  const verifyPin = async (pin) => {
+  // 2. Admin: Auth Status, Verify Password, Setup & Recovery
+  const getAdminAuthStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/verify-pin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin })
-      });
+      const res = await fetch(`${API_BASE}/api/admin/auth-status`);
       if (res.ok) {
-        const json = await res.json();
-        return json.success;
+        return await res.json();
       }
-    } catch {
-      // Local fallback check
-      const currentPin = data?.settings?.adminPin || "1234";
-      return pin === currentPin;
+    } catch (e) {
+      console.warn("Offline auth status check", e);
     }
-    const currentPin = data?.settings?.adminPin || "1234";
-    return pin === currentPin;
+    const isConfigured = Boolean(data?.settings?.adminAuth?.password);
+    return {
+      isConfigured,
+      hasRecoveryPhone: Boolean(data?.settings?.adminAuth?.recoveryPhone)
+    };
   };
 
-  // 3. Admin: Change PIN
-  const changePin = async (oldPin, newPin) => {
+  const verifyAdminPassword = async (password) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/change-pin`, {
+      const res = await fetch(`${API_BASE}/api/admin/verify-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPin, newPin })
+        body: JSON.stringify({ password })
       });
-      if (res.ok) {
-        setData((prev) => ({
-          ...prev,
-          settings: { ...prev.settings, adminPin: newPin }
-        }));
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return { success: true, token: json.token };
+      }
+      if (json.requiresSetup) {
+        return { success: false, requiresSetup: true };
+      }
+      return { success: false, error: json.error || "Mot de passe incorrect" };
+    } catch {
+      // Local fallback
+      const storedAuth = data?.settings?.adminAuth;
+      if (!storedAuth?.password) {
+        if (password === (data?.settings?.adminPin || "1234")) {
+          return { success: true };
+        }
+        return { success: false, requiresSetup: true };
+      }
+      if (password === storedAuth.password) {
         return { success: true };
       }
-      const err = await res.json();
-      return { success: false, error: err.error };
+      return { success: false, error: "Mot de passe incorrect" };
+    }
+  };
+
+  const setupAdminCredentials = async ({ email, emailPassword, phone, password }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/setup-credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, emailPassword, phone, password })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setData((prev) => ({
+          ...prev,
+          settings: {
+            ...prev.settings,
+            adminPin: password,
+            adminAuth: {
+              recoveryEmail: email.trim().toLowerCase(),
+              recoveryEmailPassword,
+              recoveryPhone: (phone || "").trim(),
+              password
+            }
+          }
+        }));
+        return { success: true, message: json.message };
+      }
+      return { success: false, error: json.error || "Erreur lors de la configuration" };
     } catch {
-      setData((prev) => ({
-        ...prev,
-        settings: { ...prev.settings, adminPin: newPin }
-      }));
+      // Local fallback
+      setData((prev) => {
+        const updated = {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            adminPin: password,
+            adminAuth: {
+              recoveryEmail: email.trim().toLowerCase(),
+              recoveryEmailPassword,
+              recoveryPhone: (phone || "").trim(),
+              password
+            }
+          }
+        };
+        localStorage.setItem("autoled_cache", JSON.stringify(updated));
+        return updated;
+      });
       return { success: true };
     }
+  };
+
+  const recoverAdminPassword = async ({ recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/recover-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setData((prev) => ({
+          ...prev,
+          settings: {
+            ...prev.settings,
+            adminPin: newPassword,
+            adminAuth: {
+              ...prev.settings?.adminAuth,
+              password: newPassword
+            }
+          }
+        }));
+        return { success: true, message: json.message };
+      }
+      return { success: false, error: json.error || "Informations de récupération incorrectes" };
+    } catch {
+      // Local fallback check
+      const stored = data?.settings?.adminAuth;
+      if (!stored) {
+        return { success: false, error: "Aucun profil d'authentification configuré." };
+      }
+      if (
+        stored.recoveryEmail?.trim().toLowerCase() === recoveryEmail?.trim().toLowerCase() &&
+        stored.recoveryEmailPassword === recoveryEmailPassword
+      ) {
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              adminPin: newPassword,
+              adminAuth: {
+                ...prev.settings?.adminAuth,
+                password: newPassword
+              }
+            }
+          };
+          localStorage.setItem("autoled_cache", JSON.stringify(updated));
+          return updated;
+        });
+        return { success: true };
+      }
+      return { success: false, error: "Email de récupération ou mot de passe incorrect" };
+    }
+  };
+
+  const changeAdminCredentials = async ({ currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/change-credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setData((prev) => {
+          const updatedAuth = {
+            ...prev.settings?.adminAuth,
+            ...(newPassword ? { password: newPassword } : {}),
+            ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
+            ...(recoveryEmailPassword ? { recoveryEmailPassword } : {}),
+            ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
+          };
+          return {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              ...(newPassword ? { adminPin: newPassword } : {}),
+              adminAuth: updatedAuth
+            }
+          };
+        });
+        return { success: true, message: json.message };
+      }
+      return { success: false, error: json.error || "Erreur de mise à jour" };
+    } catch {
+      setData((prev) => {
+        const updatedAuth = {
+          ...prev.settings?.adminAuth,
+          ...(newPassword ? { password: newPassword } : {}),
+          ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
+          ...(recoveryEmailPassword ? { recoveryEmailPassword } : {}),
+          ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
+        };
+        const updated = {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            ...(newPassword ? { adminPin: newPassword } : {}),
+            adminAuth: updatedAuth
+          }
+        };
+        localStorage.setItem("autoled_cache", JSON.stringify(updated));
+        return updated;
+      });
+      return { success: true };
+    }
+  };
+
+  // Backwards compatibility alias for PIN
+  const verifyPin = async (pin) => {
+    const res = await verifyAdminPassword(pin);
+    return res.success;
+  };
+
+  const changePin = async (oldPin, newPin) => {
+    return await changeAdminCredentials({ currentPassword: oldPin, newPassword: newPin });
   };
 
   // 4. Admin: Update settings (banner, hours, etc.)
@@ -748,6 +914,11 @@ export function DataProvider({ children }) {
         saveAppointment,
         verifyPin,
         changePin,
+        getAdminAuthStatus,
+        verifyAdminPassword,
+        setupAdminCredentials,
+        recoverAdminPassword,
+        changeAdminCredentials,
         updateSettings,
         savePhone,
         deletePhone,

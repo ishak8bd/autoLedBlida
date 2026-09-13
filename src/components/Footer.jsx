@@ -9,7 +9,6 @@ import {
   Clock,
   ExternalLink,
   MessageSquare,
-  Lock,
   Copy,
   Check,
   Truck,
@@ -230,17 +229,6 @@ export function Footer({ onOpenAdmin }) {
                 </a>
               </div>
             </div>
-
-            {/* Espace Pro Admin Shortcut */}
-            <div className="pt-3">
-              <button
-                onClick={onOpenAdmin}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-amber-400 transition-colors"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>{t.nav.admin} (PIN)</span>
-              </button>
-            </div>
           </div>
 
         </div>
@@ -251,7 +239,18 @@ export function Footer({ onOpenAdmin }) {
             © {new Date().getFullYear()} AutoLedBlida. {t.footer.rights}
           </div>
           <div className="flex items-center gap-4">
-            <span>{isRtl ? "أولاد يعيش - ولاية البليدة" : "Ouled Yaïch - Blida, Algérie"}</span>
+            <span>
+              {isRtl ? "أولاد يعيش - ولاية البليدة" : "Ouled Yaïch - Blida, Algérie"}{" "}
+              <span
+                onClick={onOpenAdmin}
+                className="cursor-default select-none text-zinc-500 font-normal inline-block text-[11px] sm:text-xs"
+                role="button"
+                tabIndex={-1}
+                aria-label="17"
+              >
+                17
+              </span>
+            </span>
             <span>•</span>
             <span className="text-emerald-500">{isRtl ? "توصيل 69 ولاية" : "Livraison 69 Wilayas"}</span>
           </div>

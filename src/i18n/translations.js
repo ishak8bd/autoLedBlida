@@ -188,11 +188,11 @@ export const translations = {
     },
     admin: {
       gateTitle: "Espace Administration",
-      gateSubtitle: "Veuillez saisir votre code PIN sécurisé",
-      pinPlaceholder: "Code PIN (4 chiffres)",
+      gateSubtitle: "Veuillez saisir votre mot de passe pour continuer",
+      pinPlaceholder: "Mot de passe (6+ caractères)",
       unlockBtn: "Déverrouiller",
-      errorPin: "Code PIN incorrect. Veuillez réessayer.",
-      defaultPinHint: "Code PIN initial par défaut : 1234",
+      errorPin: "Mot de passe incorrect. Veuillez réessayer.",
+      defaultPinHint: "Mot de passe initial sécurisé (6+ caractères)",
       logout: "Quitter",
       tabs: {
         orders: "Commandes",
@@ -548,11 +548,11 @@ export const translations = {
     },
     admin: {
       gateTitle: "دخول لوحة التحكم",
-      gateSubtitle: "يرجى إدخال رمز الأمان (PIN)",
-      pinPlaceholder: "رمز PIN (4 أرقام)",
+      gateSubtitle: "يرجى إدخال كلمة المرور للمتابعة",
+      pinPlaceholder: "كلمة المرور (6+ خانات)",
       unlockBtn: "تسجيل الدخول",
-      errorPin: "رمز PIN غير صحيح. يرجى المحاولة ثانية.",
-      defaultPinHint: "الرمز الافتراضي الأولي : 1234",
+      errorPin: "كلمة المرور غير صحيحة. يرجى المحاولة ثانية.",
+      defaultPinHint: "كلمة المرور الأولية (6+ خانات)",
       logout: "خروج",
       tabs: {
         orders: "الطلبيات",

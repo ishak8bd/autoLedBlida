@@ -7,7 +7,6 @@ import {
   Phone,
   MessageSquare,
   Globe,
-  Lock,
   Menu,
   X,
   ChevronDown,
@@ -169,16 +168,6 @@ export function Header({ onOpenAdmin, onOpenBooking }) {
             >
               <Globe className="w-3.5 h-3.5 text-brand-red" />
               <span>{lang === "fr" ? "العربية" : "Français"}</span>
-            </button>
-
-
-            {/* Admin Back-Office Lock Button */}
-            <button
-              onClick={onOpenAdmin}
-              className="p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-amber-500/60 text-zinc-400 hover:text-amber-400 transition-colors"
-              title={t.nav.admin}
-            >
-              <Lock className="w-4 h-4" />
             </button>
 
             {/* Mobile Menu Toggle */}

@@ -13,6 +13,8 @@ import {
   Maximize2
 } from "lucide-react";
 
+import { ProductImageLightboxModal } from "./ProductImageLightboxModal";
+
 export function ProductDetailModal({
   product,
   isOpen,
@@ -23,10 +25,12 @@ export function ProductDetailModal({
   const { isRtl, t } = useLanguage();
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setActiveImageIndex(0);
+      setLightboxOpen(false);
     }
   }, [isOpen, product]);
 
@@ -69,12 +73,30 @@ export function ProductDetailModal({
           {/* Left Column: Image Viewer + Thumbnails */}
           <div className="space-y-3">
             {/* Main Active Picture */}
-            <div className="relative aspect-square sm:aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 shadow-inner group">
+            <div
+              onClick={() => setLightboxOpen(true)}
+              className="relative aspect-square sm:aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 shadow-inner group cursor-zoom-in"
+              title={isRtl ? "انقر لعرض الصورة كاملة بدون قص" : "Cliquez pour voir la photo au complet (plein écran)"}
+            >
               <img
                 src={currentImage}
                 alt={title}
-                className="w-full h-full object-cover object-center transition-all duration-300"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-all duration-300"
               />
+
+              {/* Expand to Lightbox Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxOpen(true);
+                }}
+                className="absolute bottom-2.5 left-2.5 rtl:left-auto rtl:right-2.5 z-10 px-2.5 py-1 rounded-lg bg-black/75 hover:bg-brand-red border border-zinc-700 hover:border-brand-red text-white text-[11px] font-bold flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer shadow-lg active:scale-95"
+                title={isRtl ? "عرض الصورة كاملة بدون قص" : "Agrandir l'image au complet"}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>{isRtl ? "تكبير الصورة" : "Agrandir"}</span>
+              </button>
 
               {/* Badges Overlay */}
               <div className="absolute top-3 left-3 rtl:left-auto rtl:right-3 flex flex-col gap-1.5 z-10">
@@ -247,6 +269,15 @@ export function ProductDetailModal({
         </div>
 
       </div>
+
+      {/* Fullscreen Uncropped Lightbox Gallery */}
+      <ProductImageLightboxModal
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        images={images}
+        initialIndex={activeImageIndex}
+        title={title}
+      />
     </div>
   );
 }

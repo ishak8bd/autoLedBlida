@@ -16,8 +16,10 @@ import {
   Images,
   Sparkles,
   ArrowUpDown,
+  Maximize2,
   X
 } from "lucide-react";
+import { ProductImageLightboxModal } from "./ProductImageLightboxModal";
 
 export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduct }) {
   const { t, isRtl } = useLanguage();
@@ -29,6 +31,7 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [onlyPromo, setOnlyPromo] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
+  const [lightboxProduct, setLightboxProduct] = useState(null);
 
   const categories = data?.categories || [];
   const products = data?.products || [];
@@ -316,11 +319,22 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
                     />
 
                     {/* Hover Visual Preview Hint */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 backdrop-blur-[2px]">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
                       <div className="px-3 py-1.5 rounded-full bg-black/75 border border-zinc-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
                         <Eye className="w-3.5 h-3.5 text-brand-red" />
                         <span>{isRtl ? "عرض التفاصيل" : "Aperçu"}</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxProduct(product);
+                        }}
+                        className="p-1.5 rounded-full bg-black/75 hover:bg-brand-red border border-zinc-600 hover:border-brand-red text-white transition-all shadow-lg active:scale-90"
+                        title={isRtl ? "تكبير الصورة بالكامل" : "Agrandir l'image au complet"}
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                     {/* Stock Status Badge */}
@@ -437,6 +451,20 @@ export function Products({ onSelectProductForBooking, onBuyProduct, onViewProduc
         )}
 
       </div>
+
+      {/* Product Image Lightbox Modal */}
+      {lightboxProduct && (
+        <ProductImageLightboxModal
+          isOpen={Boolean(lightboxProduct)}
+          onClose={() => setLightboxProduct(null)}
+          images={
+            Array.isArray(lightboxProduct.images) && lightboxProduct.images.length > 0
+              ? lightboxProduct.images
+              : [lightboxProduct.image || "/biled-lens.jpg"]
+          }
+          title={isRtl ? lightboxProduct.nameAr || lightboxProduct.nameFr : lightboxProduct.nameFr}
+        />
+      )}
     </section>
   );
 }

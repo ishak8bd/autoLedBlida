@@ -37,11 +37,24 @@ function writeData(data) {
   }
 }
 
-// 1. Get entire public/admin store
+// 1. Get entire public/admin store (with credentials sanitized for privacy)
 app.get("/api/data", (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Failed to load database" });
-  res.json(data);
+
+  const safeData = {
+    ...data,
+    settings: {
+      ...data.settings,
+      adminPin: undefined,
+      adminAuth: {
+        isConfigured: Boolean(data.settings?.adminAuth?.password),
+        recoveryEmail: data.settings?.adminAuth?.recoveryEmail || "",
+        hasRecoveryPhone: Boolean(data.settings?.adminAuth?.recoveryPhone)
+      }
+    }
+  };
+  res.json(safeData);
 });
 
 // Helpers for phone validation
@@ -165,36 +178,191 @@ app.post("/api/orders", (req, res) => {
   res.status(201).json({ success: true, order: newOrder });
 });
 
-// 3. Admin: Verify PIN
+// 3. Admin: Check Auth Status
+app.get("/api/admin/auth-status", (req, res) => {
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const isConfigured = Boolean(data.settings?.adminAuth?.password);
+  res.json({
+    isConfigured,
+    hasRecoveryPhone: Boolean(data.settings?.adminAuth?.recoveryPhone)
+  });
+});
+
+// 4. Admin: Setup Initial Credentials
+app.post("/api/admin/setup-credentials", (req, res) => {
+  const { email, emailPassword, phone, password } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ error: "Email de récupération valide requis" });
+  }
+  if (!emailPassword || String(emailPassword).trim().length === 0) {
+    return res.status(400).json({ error: "Mot de passe de l'email requis" });
+  }
+  if (!password || String(password).length < 6) {
+    return res.status(400).json({ error: "Le mot de passe admin doit comporter au moins 6 caractères ou chiffres" });
+  }
+
+  data.settings = data.settings || {};
+  data.settings.adminAuth = {
+    recoveryEmail: email.trim().toLowerCase(),
+    recoveryEmailPassword: String(emailPassword),
+    recoveryPhone: (phone || "").trim(),
+    password: String(password)
+  };
+  data.settings.adminPin = String(password);
+  writeData(data);
+
+  res.json({ success: true, message: "Accès administrateur configuré avec succès" });
+});
+
+// 5. Admin: Verify Password
+app.post("/api/admin/verify-password", (req, res) => {
+  const { password } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const storedAuth = data.settings?.adminAuth;
+  if (!storedAuth || !storedAuth.password) {
+    if (password && (password === data.settings?.adminPin || password === "1234")) {
+      return res.json({ success: true, requiresSetup: true, token: "admin-auth-" + Date.now() });
+    }
+    return res.status(200).json({ success: false, requiresSetup: true });
+  }
+
+  if (String(password) === String(storedAuth.password)) {
+    return res.json({ success: true, token: "admin-auth-" + Date.now() });
+  }
+
+  return res.status(401).json({ success: false, error: "Mot de passe incorrect" });
+});
+
+// 6. Admin: Recover Password
+app.post("/api/admin/recover-password", (req, res) => {
+  const { recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const storedAuth = data.settings?.adminAuth;
+  if (!storedAuth || !storedAuth.password) {
+    return res.status(400).json({ error: "Aucun accès configuré. Veuillez d'abord créer vos identifiants." });
+  }
+
+  const emailMatch =
+    recoveryEmail &&
+    recoveryEmail.trim().toLowerCase() === String(storedAuth.recoveryEmail).trim().toLowerCase();
+
+  const emailPasswordMatch =
+    recoveryEmailPassword &&
+    String(recoveryEmailPassword) === String(storedAuth.recoveryEmailPassword);
+
+  if (!emailMatch || !emailPasswordMatch) {
+    return res.status(401).json({
+      error: "Email de récupération ou mot de passe de l'email incorrect."
+    });
+  }
+
+  if (storedAuth.recoveryPhone && recoveryPhone) {
+    const cleanInput = cleanAlgerianPhone(recoveryPhone);
+    const cleanStored = cleanAlgerianPhone(storedAuth.recoveryPhone);
+    if (cleanInput && cleanStored && cleanInput !== cleanStored) {
+      return res.status(401).json({ error: "Numéro de téléphone de récupération non correspondant." });
+    }
+  }
+
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({
+      error: "Le nouveau mot de passe doit comporter au moins 6 caractères ou chiffres."
+    });
+  }
+
+  data.settings.adminAuth.password = String(newPassword);
+  data.settings.adminPin = String(newPassword);
+  writeData(data);
+
+  res.json({
+    success: true,
+    message: "Mot de passe réinitialisé avec succès !"
+  });
+});
+
+// 7. Admin: Change Credentials (from Settings Tab)
+app.post("/api/admin/change-credentials", (req, res) => {
+  const { currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Database error" });
+
+  const storedAuth = data.settings?.adminAuth || {};
+  const currentExpected = storedAuth.password || data.settings?.adminPin || "1234";
+
+  if (String(currentPassword) !== String(currentExpected)) {
+    return res.status(401).json({ error: "Mot de passe actuel incorrect" });
+  }
+
+  if (newPassword) {
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères" });
+    }
+    storedAuth.password = String(newPassword);
+    data.settings.adminPin = String(newPassword);
+  }
+
+  if (recoveryEmail) {
+    if (!recoveryEmail.includes("@")) {
+      return res.status(400).json({ error: "Email de récupération invalide" });
+    }
+    storedAuth.recoveryEmail = recoveryEmail.trim().toLowerCase();
+  }
+
+  if (recoveryEmailPassword) {
+    storedAuth.recoveryEmailPassword = String(recoveryEmailPassword);
+  }
+
+  if (recoveryPhone !== undefined) {
+    storedAuth.recoveryPhone = String(recoveryPhone).trim();
+  }
+
+  data.settings.adminAuth = storedAuth;
+  writeData(data);
+
+  res.json({ success: true, message: "Informations d'administration mises à jour avec succès" });
+});
+
+// Legacy backward-compatibility endpoints
 app.post("/api/admin/verify-pin", (req, res) => {
   const { pin } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
-  const currentPin = data.settings?.adminPin || "1234";
-  if (pin === currentPin) {
+  const currentPass = data.settings?.adminAuth?.password || data.settings?.adminPin || "1234";
+  if (pin === currentPass) {
     return res.json({ success: true, token: "admin-auth-" + Date.now() });
   }
-  return res.status(401).json({ success: false, error: "Code PIN incorrect" });
+  return res.status(401).json({ success: false, error: "Code d'accès incorrect" });
 });
 
-// 4. Admin: Change PIN
 app.post("/api/admin/change-pin", (req, res) => {
   const { oldPin, newPin } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
-  if (data.settings.adminPin && data.settings.adminPin !== oldPin) {
-    return res.status(400).json({ error: "Ancien code PIN incorrect" });
+  const currentPass = data.settings?.adminAuth?.password || data.settings?.adminPin || "1234";
+  if (currentPass && currentPass !== oldPin) {
+    return res.status(400).json({ error: "Ancien code incorrect" });
   }
 
-  if (!newPin || newPin.length < 4) {
-    return res.status(400).json({ error: "Le nouveau code doit contenir au moins 4 chiffres" });
+  if (!newPin || newPin.length < 6) {
+    return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères" });
   }
 
+  data.settings.adminAuth = data.settings.adminAuth || {};
+  data.settings.adminAuth.password = newPin;
   data.settings.adminPin = newPin;
   writeData(data);
-  res.json({ success: true, message: "Code PIN mis à jour avec succès" });
+  res.json({ success: true, message: "Mot de passe mis à jour avec succès" });
 });
 
 // 5. Admin: Update Site Settings
@@ -641,6 +809,8 @@ if (fs.existsSync(DIST_PATH)) {
   });
 }
 
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`AutoLedBlida Server running on port ${PORT}`);
 });
+
+export default app;
