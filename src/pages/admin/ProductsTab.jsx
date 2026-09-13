@@ -242,19 +242,19 @@ export function ProductsTab() {
       {viewMode === "table" ? (
         <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
           {/* Mobile swipe hint */}
-          <div className="block sm:hidden text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
-            {t.admin.productsTab.scrollHint || "Glissez horizontalement pour voir tout le tableau ↔"}
+          <div className="block md:hidden text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
+            {t.admin.productsTab.scrollHint || (isRtl ? "مرر أفقياً لعرض كامل الجدول ↔" : "Glissez horizontalement pour voir tout le tableau ↔")}
           </div>
 
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-start text-xs sm:text-sm min-w-[620px]">
+            <table className="w-full text-start text-xs sm:text-sm min-w-max">
               <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
                 <tr>
-                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colProduct}</th>
-                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colCategory}</th>
-                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colPrice}</th>
-                  <th className="p-3.5 px-4 text-start">{t.admin.productsTab.colStock}</th>
-                  <th className="p-3.5 px-4 text-end">{t.admin.productsTab.colActions}</th>
+                  <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.productsTab.colProduct}</th>
+                  <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.productsTab.colCategory}</th>
+                  <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.productsTab.colPrice}</th>
+                  <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.productsTab.colStock}</th>
+                  <th className="p-3.5 px-4 text-end whitespace-nowrap">{t.admin.productsTab.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
@@ -269,13 +269,13 @@ export function ProductsTab() {
                     const imgCount = Array.isArray(p.images) && p.images.length > 0 ? p.images.length : (p.image ? 1 : 0);
                     return (
                       <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
-                        <td className="p-3 px-4">
+                        <td className="p-3 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <div className="relative shrink-0">
                               <img
                                 src={p.image || "/biled-lens.jpg"}
                                 alt={p.nameFr}
-                                className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700"
+                                className="w-12 h-12 rounded-xl object-cover bg-zinc-900 border border-zinc-700 shrink-0"
                               />
                               {imgCount > 1 && (
                                 <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-md bg-brand-red text-[10px] font-bold text-white shadow-md flex items-center gap-0.5">
@@ -284,37 +284,37 @@ export function ProductsTab() {
                                 </span>
                               )}
                             </div>
-                            <div className="min-w-0 max-w-md">
-                              <div className="font-bold text-white leading-snug whitespace-normal">{p.nameFr}</div>
+                            <div className="whitespace-nowrap">
+                              <div className="font-bold text-white whitespace-nowrap">{p.nameFr}</div>
                               {p.nameAr && (
-                                <div className="text-xs text-zinc-400 mt-0.5 leading-snug whitespace-normal">{p.nameAr}</div>
+                                <div className="text-xs text-zinc-400 mt-0.5 whitespace-nowrap">{p.nameAr}</div>
                               )}
                               {p.badgeFr && (
-                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 border border-amber-500/40 text-amber-300">
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 border border-amber-500/40 text-amber-300 whitespace-nowrap">
                                   {isRtl ? p.badgeAr || p.badgeFr : p.badgeFr}
                                 </span>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="p-3 px-4">
+                        <td className="p-3 px-4 whitespace-nowrap">
                           <span className="px-2.5 py-1 rounded-lg bg-zinc-800/90 border border-zinc-700/60 text-zinc-300 text-xs font-medium whitespace-nowrap">
                             {getCategoryName(p.category)}
                           </span>
                         </td>
-                        <td className="p-3 px-4">
+                        <td className="p-3 px-4 whitespace-nowrap">
                           <div className="font-mono font-black text-white whitespace-nowrap">
                             {p.price?.toLocaleString()} DZD
                           </div>
                           {p.oldPrice && (
-                            <div className="text-[11px] text-zinc-500 line-through font-mono">
+                            <div className="text-[11px] text-zinc-500 line-through font-mono whitespace-nowrap">
                               {p.oldPrice?.toLocaleString()} DZD
                             </div>
                           )}
                         </td>
                         <td className="p-3 px-4 whitespace-nowrap">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block whitespace-nowrap ${
                               p.inStock
                                 ? "bg-emerald-950 text-emerald-400 border border-emerald-500/40"
                                 : "bg-rose-950 text-rose-400 border border-rose-500/40"
@@ -323,8 +323,8 @@ export function ProductsTab() {
                             {p.inStock ? t.admin.productsTab.inStock : t.admin.productsTab.outOfStock}
                           </span>
                         </td>
-                        <td className="p-3 px-4 text-end">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="p-3 px-4 text-end whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                             <button
                               onClick={() => {
                                 setEditingProduct({
