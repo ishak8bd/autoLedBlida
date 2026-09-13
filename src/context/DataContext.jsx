@@ -183,6 +183,52 @@ export function DataProvider({ children }) {
     }
   };
 
+  const sendResetOtp = async (email) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/send-reset-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const json = await res.json();
+      return json;
+    } catch {
+      return {
+        success: false,
+        canUseFallback: true,
+        error: "Erreur de connexion lors de l'envoi de l'email. Vous pouvez utiliser l'Option B (clé de secours)."
+      };
+    }
+  };
+
+  const verifyResetOtp = async ({ email, otp, newPassword }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-reset-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp, newPassword })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setData((prev) => ({
+          ...prev,
+          settings: {
+            ...prev.settings,
+            adminPin: newPassword,
+            adminAuth: {
+              ...prev.settings?.adminAuth,
+              password: newPassword
+            }
+          }
+        }));
+        return { success: true, message: json.message };
+      }
+      return { success: false, error: json.error || "Code de vérification incorrect" };
+    } catch {
+      return { success: false, error: "Erreur réseau. Utilisez l'Option B (clé de secours)." };
+    }
+  };
+
   const recoverAdminPassword = async ({ recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/recover-password`, {
@@ -918,6 +964,8 @@ export function DataProvider({ children }) {
         verifyAdminPassword,
         setupAdminCredentials,
         recoverAdminPassword,
+        sendResetOtp,
+        verifyResetOtp,
         changeAdminCredentials,
         updateSettings,
         savePhone,

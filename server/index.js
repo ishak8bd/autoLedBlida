@@ -3,6 +3,7 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import nodemailer from "nodemailer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,20 @@ const DATA_FILE = path.join(__dirname, "data", "store.json");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// In-memory OTP storage for password reset: email -> { code, expiresAt, attempts }
+const resetOtpStore = new Map();
+
+// Helper to create Nodemailer Gmail transporter
+function createMailTransporter(email, password) {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: email,
+      pass: String(password).replace(/\s+/g, "")
+    }
+  });
+}
 
 app.use(cors());
 app.use(express.json({ limit: "25mb" }));
@@ -240,9 +255,144 @@ app.post("/api/admin/verify-password", (req, res) => {
   return res.status(401).json({ success: false, error: "Mot de passe incorrect" });
 });
 
-// 6. Admin: Recover Password
+// 6. Admin Option A: Send 6-Digit Verification OTP via Nodemailer
+app.post("/api/admin/send-reset-otp", async (req, res) => {
+  const { email } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Erreur base de données" });
+
+  const storedAuth = data.settings?.adminAuth;
+  if (!storedAuth || !storedAuth.recoveryEmail) {
+    return res.status(400).json({ error: "Aucun email administrateur configuré." });
+  }
+
+  const normalizedInput = String(email || "").trim().toLowerCase();
+  const normalizedStored = String(storedAuth.recoveryEmail).trim().toLowerCase();
+
+  if (normalizedInput !== normalizedStored) {
+    return res.status(400).json({
+      error: "Cette adresse Gmail ne correspond pas au compte administrateur enregistré."
+    });
+  }
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  resetOtpStore.set(normalizedStored, {
+    code: otp,
+    expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
+    attempts: 0
+  });
+
+  // Attempt sending via Nodemailer
+  if (storedAuth.recoveryEmailPassword) {
+    try {
+      const transporter = createMailTransporter(
+        storedAuth.recoveryEmail,
+        storedAuth.recoveryEmailPassword
+      );
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #ffffff; padding: 24px; border-radius: 16px; max-width: 500px; margin: auto; border: 1px solid #27272a;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #ef4444; margin: 0; font-size: 22px;">AutoLedBlida</h2>
+            <p style="color: #a1a1aa; font-size: 13px; margin-top: 4px;">Récupération de mot de passe administrateur</p>
+          </div>
+          <p style="font-size: 14px; color: #e4e4e7;">Bonjour,</p>
+          <p style="font-size: 14px; color: #d4d4d8;">Vous avez demandé la réinitialisation de votre mot de passe pour l'espace d'administration. Voici votre code de confirmation :</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #ef4444; background: #18181b; padding: 12px 24px; border-radius: 12px; border: 1px solid #ef4444;">${otp}</span>
+          </div>
+          <p style="font-size: 12px; color: #a1a1aa; text-align: center;">Ce code est valable pendant <strong>15 minutes</strong>. Ne le partagez avec personne.</p>
+          <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
+          <p style="font-size: 11px; color: #71717a; text-align: center;">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+        </div>
+      `;
+
+      await transporter.sendMail({
+        from: `"AutoLedBlida Admin" <${storedAuth.recoveryEmail}>`,
+        to: storedAuth.recoveryEmail,
+        subject: `Code de vérification AutoLedBlida : ${otp}`,
+        text: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`,
+        html: htmlContent
+      });
+
+      return res.json({
+        success: true,
+        message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
+      });
+    } catch (mailErr) {
+      console.error("Nodemailer send error:", mailErr.message);
+      return res.status(500).json({
+        success: false,
+        canUseFallback: true,
+        error: "Impossible d'envoyer l'email (vérifiez le mot de passe d'application ou la connexion). Vous pouvez utiliser l'Option B (clé de secours)."
+      });
+    }
+  } else {
+    return res.status(400).json({
+      success: false,
+      canUseFallback: true,
+      error: "Mot de passe de l'email non configuré pour l'envoi automatique. Utilisez l'Option B."
+    });
+  }
+});
+
+// 7. Admin Option A: Verify OTP & Set New Password
+app.post("/api/admin/verify-reset-otp", (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  const data = readData();
+  if (!data) return res.status(500).json({ error: "Erreur base de données" });
+
+  const storedAuth = data.settings?.adminAuth;
+  if (!storedAuth || !storedAuth.recoveryEmail) {
+    return res.status(400).json({ error: "Aucun accès configuré." });
+  }
+
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedStored = String(storedAuth.recoveryEmail).trim().toLowerCase();
+
+  if (normalizedEmail !== normalizedStored) {
+    return res.status(400).json({ error: "Adresse email non reconnue." });
+  }
+
+  const record = resetOtpStore.get(normalizedEmail);
+  if (!record) {
+    return res.status(400).json({ error: "Aucun code demandé ou code expiré. Veuillez demander un nouveau code." });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    resetOtpStore.delete(normalizedEmail);
+    return res.status(400).json({ error: "Ce code a expiré. Veuillez en demander un nouveau." });
+  }
+
+  if (String(record.code).trim() !== String(otp || "").trim()) {
+    record.attempts = (record.attempts || 0) + 1;
+    if (record.attempts >= 5) {
+      resetOtpStore.delete(normalizedEmail);
+      return res.status(400).json({ error: "Trop de tentatives incorrectes. Veuillez demander un nouveau code." });
+    }
+    return res.status(400).json({ error: "Code de vérification incorrect. Veuillez vérifier vos emails." });
+  }
+
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères." });
+  }
+
+  // Success
+  resetOtpStore.delete(normalizedEmail);
+  data.settings.adminAuth.password = String(newPassword);
+  data.settings.adminPin = String(newPassword);
+  writeData(data);
+
+  return res.json({
+    success: true,
+    message: "Mot de passe réinitialisé avec succès !"
+  });
+});
+
+// 8. Admin Option B: Direct Rescue with Gmail + Email Password (no email required)
 app.post("/api/admin/recover-password", (req, res) => {
-  const { recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword } = req.body;
+  const { recoveryEmail, recoveryEmailPassword, newPassword } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -255,22 +405,14 @@ app.post("/api/admin/recover-password", (req, res) => {
     recoveryEmail &&
     recoveryEmail.trim().toLowerCase() === String(storedAuth.recoveryEmail).trim().toLowerCase();
 
-  const emailPasswordMatch =
-    recoveryEmailPassword &&
-    String(recoveryEmailPassword) === String(storedAuth.recoveryEmailPassword);
+  const cleanInputPass = String(recoveryEmailPassword || "").replace(/\s+/g, "");
+  const cleanStoredPass = String(storedAuth.recoveryEmailPassword || "").replace(/\s+/g, "");
+  const emailPasswordMatch = cleanInputPass === cleanStoredPass;
 
   if (!emailMatch || !emailPasswordMatch) {
     return res.status(401).json({
-      error: "Email de récupération ou mot de passe de l'email incorrect."
+      error: "Adresse Gmail ou mot de passe de l'email / clé de secours incorrect."
     });
-  }
-
-  if (storedAuth.recoveryPhone && recoveryPhone) {
-    const cleanInput = cleanAlgerianPhone(recoveryPhone);
-    const cleanStored = cleanAlgerianPhone(storedAuth.recoveryPhone);
-    if (cleanInput && cleanStored && cleanInput !== cleanStored) {
-      return res.status(401).json({ error: "Numéro de téléphone de récupération non correspondant." });
-    }
   }
 
   if (!newPassword || String(newPassword).length < 6) {
@@ -285,7 +427,7 @@ app.post("/api/admin/recover-password", (req, res) => {
 
   res.json({
     success: true,
-    message: "Mot de passe réinitialisé avec succès !"
+    message: "Mot de passe réinitialisé avec succès via la méthode de secours !"
   });
 });
 

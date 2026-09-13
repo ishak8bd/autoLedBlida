@@ -11,7 +11,10 @@ import {
   AlertCircle,
   CheckCircle2,
   ArrowLeft,
-  RotateCcw
+  RotateCcw,
+  Send,
+  Sparkles,
+  HelpCircle
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
@@ -22,10 +25,12 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     getAdminAuthStatus,
     verifyAdminPassword,
     setupAdminCredentials,
+    sendResetOtp,
+    verifyResetOtp,
     recoverAdminPassword
   } = useData();
 
-  // Modes: 'login' | 'setup' | 'recovery'
+  // Modes: 'login' | 'setup' | 'recovery_otp' | 'recovery_fallback'
   const [mode, setMode] = useState("login");
   const [checkingStatus, setCheckingStatus] = useState(true);
 
@@ -48,20 +53,30 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   const [setupError, setSetupError] = useState("");
   const [setupSuccess, setSetupSuccess] = useState("");
 
-  // Recovery form
-  const [recoveryForm, setRecoveryForm] = useState({
-    recoveryEmail: "",
-    recoveryEmailPassword: "",
-    recoveryPhone: "",
+  // Option A (OTP by email)
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpNewPassword, setOtpNewPassword] = useState("");
+  const [otpConfirmPassword, setOtpConfirmPassword] = useState("");
+  const [showOtpNewPass, setShowOtpNewPass] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccess, setOtpSuccess] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+
+  // Option B (Direct Fallback Rescue)
+  const [fallbackForm, setFallbackForm] = useState({
+    email: "",
+    emailPassword: "",
     newPassword: "",
     confirmPassword: ""
   });
-  const [showRecEmailPass, setShowRecEmailPass] = useState(false);
-  const [showRecNewPass, setShowRecNewPass] = useState(false);
-  const [recoveryError, setRecoveryError] = useState("");
-  const [recoverySuccess, setRecoverySuccess] = useState("");
+  const [showFallbackPass, setShowFallbackPass] = useState(false);
+  const [showFallbackNewPass, setShowFallbackNewPass] = useState(false);
+  const [fallbackError, setFallbackError] = useState("");
+  const [fallbackSuccess, setFallbackSuccess] = useState("");
 
-  // Check auth configuration on mount
+  // Check initial configuration on mount
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -130,8 +145,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     if (!setupForm.emailPassword || setupForm.emailPassword.trim().length === 0) {
       setSetupError(
         isRtl
-          ? "يرجى إدخال كلمة سر البريد الإلكتروني."
-          : "Veuillez entrer le mot de passe de l'email."
+          ? "يرجى إدخال كلمة سر البريد الإلكتروني (أو كلمة سر التطبيق)."
+          : "Veuillez entrer le mot de passe de l'email (ou mot de passe d'application)."
       );
       return;
     }
@@ -173,38 +188,123 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     }
   };
 
-  // 3. Handle Recovery Submit
-  const handleRecoverySubmit = async (e) => {
-    e.preventDefault();
-    setRecoveryError("");
-    setRecoverySuccess("");
+  // 3. Option A: Send OTP by Email
+  const handleSendOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!otpEmail || !otpEmail.includes("@")) {
+      setOtpError(
+        isRtl
+          ? "يرجى إدخال عنوان Gmail المسجل."
+          : "Veuillez entrer votre adresse Gmail enregistrée."
+      );
+      return;
+    }
 
-    if (!recoveryForm.recoveryEmail || !recoveryForm.recoveryEmail.includes("@")) {
-      setRecoveryError(
+    setIsSendingOtp(true);
+    setOtpError("");
+    setOtpSuccess("");
+
+    const res = await sendResetOtp(otpEmail);
+    setIsSendingOtp(false);
+
+    if (res.success) {
+      setOtpSent(true);
+      setOtpSuccess(
         isRtl
-          ? "يرجى إدخال بريد الاسترجاع المسجل."
-          : "Veuillez entrer l'email de récupération enregistré."
+          ? "تم إرسال رمز الأمان (6 أرقام) إلى بريدك الإلكتروني! تفقد صندوق الرسائل."
+          : "Code de vérification (6 chiffres) envoyé avec succès ! Consultez vos emails."
+      );
+    } else {
+      setOtpError(
+        res.error ||
+          (isRtl
+            ? "تعذر إرسال البريد. يمكنك استخدام خيار الاسترجاع الاحتياطي (الخيار ب)."
+            : "Échec d'envoi de l'email. Vous pouvez utiliser l'Option B (Secours direct).")
+      );
+    }
+  };
+
+  // 4. Option A: Verify OTP & Reset Password
+  const handleVerifyOtpSubmit = async (e) => {
+    e.preventDefault();
+    setOtpError("");
+    setOtpSuccess("");
+
+    if (!otpCode || otpCode.length < 6) {
+      setOtpError(
+        isRtl ? "يرجى إدخال الرمز المكون من 6 أرقام." : "Veuillez saisir le code à 6 chiffres."
       );
       return;
     }
-    if (!recoveryForm.recoveryEmailPassword) {
-      setRecoveryError(
+    if (!otpNewPassword || otpNewPassword.length < 6) {
+      setOtpError(
         isRtl
-          ? "يرجى إدخال كلمة سر البريد الإلكتروني."
-          : "Veuillez entrer le mot de passe de l'email."
-      );
-      return;
-    }
-    if (!recoveryForm.newPassword || recoveryForm.newPassword.length < 6) {
-      setRecoveryError(
-        isRtl
-          ? "يجب أن تكون كلمة المرور الجديدة 6 خانات أو أكثر."
+          ? "يجب أن تكون كلمة المرور الجديدة 6 خانات على الأقل."
           : "Le nouveau mot de passe doit comporter au moins 6 caractères."
       );
       return;
     }
-    if (recoveryForm.newPassword !== recoveryForm.confirmPassword) {
-      setRecoveryError(
+    if (otpNewPassword !== otpConfirmPassword) {
+      setOtpError(
+        isRtl ? "كلمتا المرور غير متطابقتين." : "Les mots de passe ne correspondent pas."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    const res = await verifyResetOtp({
+      email: otpEmail,
+      otp: otpCode,
+      newPassword: otpNewPassword
+    });
+    setIsSubmitting(false);
+
+    if (res.success) {
+      setOtpSuccess(
+        isRtl
+          ? "تم تعيين كلمة المرور الجديدة بنجاح! جاري الدخول..."
+          : "Mot de passe réinitialisé avec succès ! Connexion en cours..."
+      );
+      setTimeout(() => {
+        onAuthenticated();
+      }, 800);
+    } else {
+      setOtpError(
+        res.error || (isRtl ? "رمز التحقق غير صحيح." : "Code de vérification incorrect.")
+      );
+    }
+  };
+
+  // 5. Option B: Direct Fallback Rescue with Gmail + Email Password
+  const handleFallbackSubmit = async (e) => {
+    e.preventDefault();
+    setFallbackError("");
+    setFallbackSuccess("");
+
+    if (!fallbackForm.email || !fallbackForm.email.includes("@")) {
+      setFallbackError(
+        isRtl ? "يرجى إدخال عنوان Gmail المسجل." : "Veuillez entrer votre adresse Gmail."
+      );
+      return;
+    }
+    if (!fallbackForm.emailPassword) {
+      setFallbackError(
+        isRtl
+          ? "يرجى إدخال كلمة سر البريد الإلكتروني المسجلة."
+          : "Veuillez entrer le mot de passe de l'email enregistré."
+      );
+      return;
+    }
+    if (!fallbackForm.newPassword || fallbackForm.newPassword.length < 6) {
+      setFallbackError(
+        isRtl
+          ? "يجب أن تكون كلمة المرور 6 خانات على الأقل."
+          : "Le nouveau mot de passe doit comporter au moins 6 caractères."
+      );
+      return;
+    }
+    if (fallbackForm.newPassword !== fallbackForm.confirmPassword) {
+      setFallbackError(
         isRtl ? "كلمتا المرور غير متطابقتين." : "Les mots de passe ne correspondent pas."
       );
       return;
@@ -212,28 +312,27 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
 
     setIsSubmitting(true);
     const res = await recoverAdminPassword({
-      recoveryEmail: recoveryForm.recoveryEmail,
-      recoveryEmailPassword: recoveryForm.recoveryEmailPassword,
-      recoveryPhone: recoveryForm.recoveryPhone,
-      newPassword: recoveryForm.newPassword
+      recoveryEmail: fallbackForm.email,
+      recoveryEmailPassword: fallbackForm.emailPassword,
+      newPassword: fallbackForm.newPassword
     });
     setIsSubmitting(false);
 
     if (res.success) {
-      setRecoverySuccess(
+      setFallbackSuccess(
         isRtl
-          ? "تم استرجاع وتحديث كلمة المرور بنجاح! جاري الدخول..."
-          : "Mot de passe réinitialisé avec succès ! Accès en cours..."
+          ? "تم التحقق وتعيين كلمة المرور بنجاح! جاري الدخول..."
+          : "Vérification réussie ! Mot de passe réinitialisé avec succès."
       );
       setTimeout(() => {
         onAuthenticated();
-      }, 900);
+      }, 800);
     } else {
-      setRecoveryError(
+      setFallbackError(
         res.error ||
           (isRtl
             ? "البريد الإلكتروني أو كلمة سر البريد غير صحيحة."
-            : "Email de récupération ou mot de passe de l'email incorrect.")
+            : "Gmail ou mot de passe de l'email incorrect.")
       );
     }
   };
@@ -319,9 +418,10 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                 <button
                   type="button"
                   onClick={() => {
-                    setMode("recovery");
-                    setRecoveryError("");
-                    setRecoverySuccess("");
+                    setMode("recovery_otp");
+                    setOtpError("");
+                    setOtpSuccess("");
+                    setOtpSent(false);
                   }}
                   className="text-xs text-zinc-400 hover:text-amber-400 transition-colors underline cursor-pointer"
                 >
@@ -365,7 +465,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-brand-red" />
-                  <span>{isRtl ? "البريد الإلكتروني للاسترجاع *" : "Email de récupération *"}</span>
+                  <span>{isRtl ? "البريد الإلكتروني للاسترجاع (Gmail) *" : "Adresse Gmail de récupération *"}</span>
                 </label>
                 <input
                   type="email"
@@ -377,11 +477,11 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                 />
               </div>
 
-              {/* Email Password */}
+              {/* Email Password / App Password */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isRtl ? "كلمة سر البريد الإلكتروني *" : "Mot de passe de l'email *"}</span>
+                  <span>{isRtl ? "كلمة سر البريد (أو كلمة سر التطبيق) *" : "Mot de passe de l'email (ou code d'application) *"}</span>
                 </label>
                 <div className="relative">
                   <input
@@ -400,6 +500,11 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                     {showSetupEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
+                <p className="text-[10px] text-zinc-400">
+                  {isRtl
+                    ? "يُستخدم لإرسال كود التحقق أو كطريقة استرجاع احتياطية فورية."
+                    : "Sert à l'envoi du code OTP et comme clé de secours d'urgence."}
+                </p>
               </div>
 
               {/* Optional Phone */}
@@ -460,15 +565,6 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                 />
               </div>
 
-              <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-[11px] text-zinc-400 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>
-                  {isRtl
-                    ? "يُستخدم البريد وكلمة سره ورقم الهاتف فقط لاسترجاع كلمة المرور في حال نسيانها."
-                    : "L'email et le mot de passe de l'email sont utilisés exclusivement pour récupérer votre mot de passe si vous l'oubliez."}
-                </span>
-              </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -481,158 +577,167 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
           </div>
         )}
 
-        {/* ================= MODE 3: RECOVERY ================= */}
-        {mode === "recovery" && (
+        {/* ================= MODE 3: OPTION A (OTP BY EMAIL VIA NODEMAILER) ================= */}
+        {mode === "recovery_otp" && (
           <div className="space-y-5 text-start">
             <div className="text-center space-y-1">
-              <h2 className="text-2xl font-black text-white">
-                {isRtl ? "استرجاع كلمة المرور" : "Récupération du Mot de Passe"}
+              <h2 className="text-2xl font-black text-white flex items-center justify-center gap-2">
+                <Mail className="w-5 h-5 text-brand-red" />
+                <span>{isRtl ? "استرجاع بالبريد (كود OTP)" : "Récupération par Email"}</span>
               </h2>
               <p className="text-xs text-zinc-400">
                 {isRtl
-                  ? "أدخل بريد الاسترجاع وكلمة سره لتعيين كلمة مرور جديدة"
-                  : "Entrez votre email de récupération et son mot de passe pour réinitialiser votre accès"}
+                  ? "أدخل بريدك الإلكتروني لاستلام رمز تحقق مكون من 6 أرقام"
+                  : "Entrez votre Gmail pour recevoir un code de confirmation à 6 chiffres"}
               </p>
             </div>
 
-            {recoveryError && (
+            {otpError && (
               <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{recoveryError}</span>
+                <span>{otpError}</span>
               </div>
             )}
 
-            {recoverySuccess && (
+            {otpSuccess && (
               <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{recoverySuccess}</span>
+                <span>{otpSuccess}</span>
               </div>
             )}
 
-            <form onSubmit={handleRecoverySubmit} className="space-y-3.5">
-              {/* Recovery Email */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-brand-red" />
-                  <span>{isRtl ? "البريد الإلكتروني للاسترجاع *" : "Email de récupération *"}</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={recoveryForm.recoveryEmail}
-                  onChange={(e) =>
-                    setRecoveryForm({ ...recoveryForm, recoveryEmail: e.target.value })
-                  }
-                  placeholder="admin@gmail.com"
-                  className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                />
-              </div>
-
-              {/* Email Password */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isRtl ? "كلمة سر البريد الإلكتروني *" : "Mot de passe de l'email *"}</span>
-                </label>
-                <div className="relative">
+            {/* Step 1: Request OTP Code */}
+            {!otpSent ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    {isRtl ? "عنوان Gmail المسجل :" : "Votre adresse Gmail :"}
+                  </label>
                   <input
-                    type={showRecEmailPass ? "text" : "password"}
+                    type="email"
                     required
-                    value={recoveryForm.recoveryEmailPassword}
-                    onChange={(e) =>
-                      setRecoveryForm({ ...recoveryForm, recoveryEmailPassword: e.target.value })
-                    }
-                    placeholder="••••••••"
-                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    autoFocus
+                    value={otpEmail}
+                    onChange={(e) => setOtpEmail(e.target.value)}
+                    placeholder="votre-email@gmail.com"
+                    className="w-full py-3 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowRecEmailPass(!showRecEmailPass)}
-                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
-                  >
-                    {showRecEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
                 </div>
-              </div>
 
-              {/* Optional Phone */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <button
+                  type="submit"
+                  disabled={isSendingOtp || !otpEmail}
+                  className="w-full py-3.5 rounded-xl bg-brand-red hover:bg-brand-redDark text-white font-bold text-xs shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
                   <span>
-                    {isRtl ? "رقم الهاتف (اختياري)" : "Numéro de téléphone (optionnel)"}
+                    {isSendingOtp
+                      ? isRtl ? "جاري الإرسال عبر البريد..." : "Envoi du code en cours..."
+                      : isRtl ? "إرسال رمز التحقق (6 أرقام)" : "Envoyer le code à 6 chiffres"}
                   </span>
-                </label>
-                <input
-                  type="tel"
-                  value={recoveryForm.recoveryPhone}
-                  onChange={(e) =>
-                    setRecoveryForm({ ...recoveryForm, recoveryPhone: e.target.value })
-                  }
-                  placeholder="05 / 06 / 07..."
-                  className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                />
-              </div>
-
-              {/* New Password */}
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                  <span>{isRtl ? "كلمة المرور الجديدة (6+ خانات) *" : "Nouveau mot de passe (6+ caractères) *"}</span>
-                </label>
-                <div className="relative">
+                </button>
+              </form>
+            ) : (
+              /* Step 2: Enter 6-digit OTP & New Password */
+              <form onSubmit={handleVerifyOtpSubmit} className="space-y-3.5">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-zinc-300">
+                      {isRtl ? "رمز التحقق (6 أرقام) *" : "Code reçu par email (6 chiffres) *"}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={isSendingOtp}
+                      className="text-[11px] text-amber-400 hover:underline"
+                    >
+                      {isRtl ? "إعادة إرسال الكود" : "Renvoyer un code"}
+                    </button>
+                  </div>
                   <input
-                    type={showRecNewPass ? "text" : "password"}
+                    type="text"
                     required
-                    minLength={6}
-                    value={recoveryForm.newPassword}
-                    onChange={(e) =>
-                      setRecoveryForm({ ...recoveryForm, newPassword: e.target.value })
-                    }
-                    placeholder="Au moins 6 caractères"
-                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    maxLength={6}
+                    autoFocus
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="123456"
+                    className="w-full py-3 text-center tracking-[0.6em] text-2xl font-mono rounded-xl bg-zinc-900 border border-brand-red text-white focus:outline-none shadow-glow-red"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowRecNewPass(!showRecNewPass)}
-                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
-                  >
-                    {showRecNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
                 </div>
-              </div>
 
-              {/* Confirm New Password */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300">
-                  {isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={recoveryForm.confirmPassword}
-                  onChange={(e) =>
-                    setRecoveryForm({ ...recoveryForm, confirmPassword: e.target.value })
-                  }
-                  placeholder="••••••••"
-                  className="w-full py-2.5 px-3.5 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                />
-              </div>
+                {/* New Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    {isRtl ? "كلمة المرور الجديدة (6+ خانات) *" : "Nouveau mot de passe admin (6+ caractères) *"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showOtpNewPass ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={otpNewPassword}
+                      onChange={(e) => setOtpNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpNewPass(!showOtpNewPass)}
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                    >
+                      {showOtpNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
 
+                {/* Confirm New Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300">
+                    {isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={otpConfirmPassword}
+                    onChange={(e) => setOtpConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full py-2.5 px-3.5 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-redLight hover:from-brand-redDark hover:to-brand-red text-white font-bold text-xs shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>{isSubmitting ? (isRtl ? "جاري التحقق..." : "Vérification...") : (isRtl ? "تأكيد والدخول" : "Confirmer et Déverrouiller")}</span>
+                </button>
+              </form>
+            )}
+
+            {/* Fallback Option B trigger */}
+            <div className="pt-3 border-t border-zinc-800/80 space-y-2">
               <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-redLight hover:from-brand-redDark hover:to-brand-red text-white font-bold text-xs shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                type="button"
+                onClick={() => {
+                  setMode("recovery_fallback");
+                  setFallbackForm((prev) => ({ ...prev, email: otpEmail }));
+                  setFallbackError("");
+                  setFallbackSuccess("");
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-amber-400 hover:text-amber-300 font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4" />
+                <HelpCircle className="w-3.5 h-3.5" />
                 <span>
-                  {isSubmitting
-                    ? isRtl ? "جاري التحقق..." : "Vérification..."
-                    : isRtl ? "إعادة تعيين والدخول" : "Réinitialiser et Accéder"}
+                  {isRtl
+                    ? "لم يصلك البريد أو تأخر ؟ استخدام الخيار (ب) السريع"
+                    : "Email non reçu ou retard ? Utiliser l'Option B (Secours direct)"}
                 </span>
               </button>
 
-              <div className="pt-2 text-center">
+              <div className="text-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -645,7 +750,155 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                   <span>{isRtl ? "العودة لتسجيل الدخول" : "Retour à la connexion"}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= MODE 4: OPTION B (DIRECT FALLBACK RESCUE) ================= */}
+        {mode === "recovery_fallback" && (
+          <div className="space-y-5 text-start">
+            <div className="text-center space-y-1">
+              <h2 className="text-2xl font-black text-white flex items-center justify-center gap-2">
+                <KeyRound className="w-5 h-5 text-amber-400" />
+                <span>{isRtl ? "استرجاع فوري (الخيار ب)" : "Secours Direct (Option B)"}</span>
+              </h2>
+              <p className="text-xs text-zinc-400">
+                {isRtl
+                  ? "أدخل عنوان Gmail وكلمة سر البريد المسجلة لتعيين كلمة مرور جديدة فوراً دون انتظار الإيميل"
+                  : "Saisissez votre Gmail et le mot de passe de secours enregistré pour déverrouiller immédiatement"}
+              </p>
+            </div>
+
+            {fallbackError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{fallbackError}</span>
+              </div>
+            )}
+
+            {fallbackSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{fallbackSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleFallbackSubmit} className="space-y-3.5">
+              {/* Gmail Address */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-brand-red" />
+                  <span>{isRtl ? "عنوان Gmail المسجل *" : "Adresse Gmail enregistrée *"}</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={fallbackForm.email}
+                  onChange={(e) => setFallbackForm({ ...fallbackForm, email: e.target.value })}
+                  placeholder="votre-email@gmail.com"
+                  className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                />
+              </div>
+
+              {/* Email Password / App Password */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isRtl ? "كلمة سر البريد / كود التطبيق المسجل *" : "Mot de passe de l'email enregistré *"}</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showFallbackPass ? "text" : "password"}
+                    required
+                    value={fallbackForm.emailPassword}
+                    onChange={(e) => setFallbackForm({ ...fallbackForm, emailPassword: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFallbackPass(!showFallbackPass)}
+                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                  >
+                    {showFallbackPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-1 pt-1">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{isRtl ? "كلمة المرور الجديدة (6+ خانات) *" : "Nouveau mot de passe admin (6+ caractères) *"}</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showFallbackNewPass ? "text" : "password"}
+                    required
+                    minLength={6}
+                    value={fallbackForm.newPassword}
+                    onChange={(e) => setFallbackForm({ ...fallbackForm, newPassword: e.target.value })}
+                    placeholder="Au moins 6 caractères"
+                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFallbackNewPass(!showFallbackNewPass)}
+                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                  >
+                    {showFallbackNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-300">
+                  {isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={fallbackForm.confirmPassword}
+                  onChange={(e) => setFallbackForm({ ...fallbackForm, confirmPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full py-2.5 px-3.5 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>{isSubmitting ? (isRtl ? "جاري التحقق..." : "Vérification...") : (isRtl ? "تأكيد ودخول فوري" : "Réinitialiser Immédiatement")}</span>
+              </button>
             </form>
+
+            <div className="pt-2 flex items-center justify-between text-xs text-zinc-400">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("recovery_otp");
+                  setOtpError("");
+                  setOtpSuccess("");
+                }}
+                className="hover:text-white underline cursor-pointer"
+              >
+                {isRtl ? "العودة للخيار (أ) بالبريد" : "Revenir à l'Option A (Email)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setLoginError("");
+                }}
+                className="hover:text-white underline cursor-pointer"
+              >
+                {isRtl ? "العودة لتسجيل الدخول" : "Retour à la connexion"}
+              </button>
+            </div>
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Lock,
   Save,
@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  HelpCircle
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
@@ -28,6 +29,26 @@ export function SettingsTab() {
     recoveryEmailPassword: "",
     recoveryPhone: settings.adminAuth?.recoveryPhone || ""
   });
+
+  useEffect(() => {
+    if (settings && Object.keys(settings).length > 0) {
+      setSettingsForm((prev) => ({
+        ...settings,
+        ...prev
+      }));
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    if (settings?.adminAuth) {
+      setAuthForm((prev) => ({
+        ...prev,
+        recoveryEmail: prev.recoveryEmail || settings.adminAuth.recoveryEmail || "",
+        recoveryPhone: prev.recoveryPhone || settings.adminAuth.recoveryPhone || ""
+      }));
+    }
+  }, [settings?.adminAuth]);
+
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showEmailPass, setShowEmailPass] = useState(false);
@@ -334,7 +355,7 @@ export function SettingsTab() {
             </div>
             <div>
               <label className="text-zinc-400 block mb-1">
-                {isRtl ? "كلمة سر البريد (لتأكيد هويتك عند الاسترجاع)" : "Mot de passe de l'email (pour valider la récupération)"}
+                {isRtl ? "كلمة سر البريد (أو كود التطبيق المكون من 16 حرفاً)" : "Mot de passe d'application email (16 caractères)"}
               </label>
               <div className="relative">
                 <input
@@ -352,6 +373,11 @@ export function SettingsTab() {
                   {showEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
+              <p className="text-[10px] text-zinc-400 mt-1">
+                {isRtl
+                  ? "لـ Gmail: استخدم 'كلمة مرور التطبيقات' من إعدادات Google. تُستخدم لإرسال كود OTP عبر Nodemailer وكرمز طوارئ فوري (الخيار ب)."
+                  : "Pour Gmail : utilisez un mot de passe d'application Google (16 lettres). Sert à envoyer l'OTP par email (Option A) et de clé de secours direct (Option B)."}
+              </p>
             </div>
           </div>
 
