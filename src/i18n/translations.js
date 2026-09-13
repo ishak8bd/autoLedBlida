@@ -212,6 +212,7 @@ export const translations = {
         filterConfirmed: "Confirmé",
         filterShipped: "Expédié",
         filterDelivered: "Livré",
+        filterReturned: "Retourné",
         filterCancelled: "Annulé",
         search: "Rechercher par client, téléphone ou wilaya...",
         noData: "Aucune commande trouvée.",
@@ -349,7 +350,11 @@ export const translations = {
         newAppointments: "Rendez-vous Nouveaux",
         confirmedAppointments: "Rendez-vous Confirmés",
         totalProducts: "Produits en Boutique",
+        deliveredRevenue: "Ventes Produits Livrés (hors livraison)",
+        deliveredOrdersCount: "Commandes Livrées",
+        returnedOrdersCount: "Commandes Retournées",
         exportCsvBtn: "Télécharger la liste des rendez-vous (CSV Excel)",
+        exportOrdersCsvBtn: "Télécharger l'historique des commandes (CSV Excel)",
         systemStatus: "Base de données locale connectée : server/data/store.json"
       }
     }
@@ -567,6 +572,7 @@ export const translations = {
         filterConfirmed: "مؤكد",
         filterShipped: "تم الشحن",
         filterDelivered: "تم التوصيل",
+        filterReturned: "مسترجع",
         filterCancelled: "ملغي",
         search: "بحث باسم الزبون، الهاتف أو الولاية...",
         noData: "لا توجد طلبيات مسجلة.",
@@ -704,7 +710,11 @@ export const translations = {
         newAppointments: "المواعيد الجديدة",
         confirmedAppointments: "المواعيد المؤكدة",
         totalProducts: "المنتجات بالمتجر",
+        deliveredRevenue: "مبيعات المنتجات المسلّمة (بدون التوصيل)",
+        deliveredOrdersCount: "طلبيات تم توصيلها",
+        returnedOrdersCount: "طلبيات مسترجعة",
         exportCsvBtn: "تحميل قائمة المواعيد (ملف Excel CSV)",
+        exportOrdersCsvBtn: "تحميل سجل الطلبيات (ملف Excel CSV)",
         systemStatus: "قاعدة البيانات المحلية متصلة : server/data/store.json"
       }
     }

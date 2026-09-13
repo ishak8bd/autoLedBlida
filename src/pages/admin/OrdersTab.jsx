@@ -142,13 +142,14 @@ export function OrdersTab() {
   // Rank orders:
   // 1. "nouveau" status at the top
   // 2. Among "nouveau": ranked according to order date (createdAt) ascending -> older at top (FIFO)
-  // 3. For other statuses: active first (confirme -> expedie -> livre -> annule), then older at top
+  // 3. For other statuses: active first (confirme -> expedie -> livre -> retourne -> annule), then older at top
   const STATUS_PRIORITY = {
     nouveau: 0,
     confirme: 1,
     expedie: 2,
     livre: 3,
-    annule: 4
+    retourne: 4,
+    annule: 5
   };
 
   const sortedOrders = [...filteredOrders].sort((a, b) => {
@@ -407,6 +408,7 @@ export function OrdersTab() {
             { id: "confirme", label: t.admin.ordersTab.filterConfirmed },
             { id: "expedie", label: t.admin.ordersTab.filterShipped },
             { id: "livre", label: t.admin.ordersTab.filterDelivered },
+            { id: "retourne", label: t.admin.ordersTab.filterReturned || (isRtl ? "مسترجع" : "Retourné") },
             { id: "annule", label: t.admin.ordersTab.filterCancelled }
           ].map((st) => (
             <button
@@ -616,16 +618,19 @@ export function OrdersTab() {
                         ? "bg-amber-950/80 border-amber-500/50 text-amber-300"
                         : o.status === "livre"
                         ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-300"
+                        : o.status === "retourne"
+                        ? "bg-purple-950/80 border-purple-500/50 text-purple-300"
                         : o.status === "annule"
                         ? "bg-rose-950/80 border-rose-500/50 text-rose-400"
                         : "bg-sky-950/80 border-sky-500/50 text-sky-300"
                     }`}
                   >
-                    <option value="nouveau">Nouveau</option>
-                    <option value="confirme">Confirmé</option>
-                    <option value="expedie">Expédié</option>
-                    <option value="livre">Livré</option>
-                    <option value="annule">Annulé</option>
+                    <option value="nouveau">{isRtl ? "جديد" : "Nouveau"}</option>
+                    <option value="confirme">{isRtl ? "مؤكد" : "Confirmé"}</option>
+                    <option value="expedie">{isRtl ? "تم الشحن" : "Expédié"}</option>
+                    <option value="livre">{isRtl ? "تم التوصيل" : "Livré"}</option>
+                    <option value="retourne">{isRtl ? "مسترجع" : "Retourné"}</option>
+                    <option value="annule">{isRtl ? "ملغي" : "Annulé"}</option>
                   </select>
                 </div>
 
@@ -807,16 +812,19 @@ export function OrdersTab() {
                               ? "bg-amber-950/80 border-amber-500/50 text-amber-300"
                               : o.status === "livre"
                               ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-300"
+                              : o.status === "retourne"
+                              ? "bg-purple-950/80 border-purple-500/50 text-purple-300"
                               : o.status === "annule"
                               ? "bg-rose-950/80 border-rose-500/50 text-rose-400"
                               : "bg-sky-950/80 border-sky-500/50 text-sky-300"
                           }`}
                         >
-                          <option value="nouveau">Nouveau</option>
-                          <option value="confirme">Confirmé</option>
-                          <option value="expedie">Expédié</option>
-                          <option value="livre">Livré</option>
-                          <option value="annule">Annulé</option>
+                          <option value="nouveau">{isRtl ? "جديد" : "Nouveau"}</option>
+                          <option value="confirme">{isRtl ? "مؤكد" : "Confirmé"}</option>
+                          <option value="expedie">{isRtl ? "تم الشحن" : "Expédié"}</option>
+                          <option value="livre">{isRtl ? "تم التوصيل" : "Livré"}</option>
+                          <option value="retourne">{isRtl ? "مسترجع" : "Retourné"}</option>
+                          <option value="annule">{isRtl ? "ملغي" : "Annulé"}</option>
                         </select>
                       </td>
 
@@ -1229,11 +1237,12 @@ export function OrdersTab() {
                       onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-bold focus:outline-none focus:border-brand-red text-sm"
                     >
-                      <option value="nouveau">Nouveau</option>
-                      <option value="confirme">Confirmé</option>
-                      <option value="expedie">Expédié</option>
-                      <option value="livre">Livré</option>
-                      <option value="annule">Annulé</option>
+                      <option value="nouveau">{isRtl ? "جديد" : "Nouveau"}</option>
+                      <option value="confirme">{isRtl ? "مؤكد" : "Confirmé"}</option>
+                      <option value="expedie">{isRtl ? "تم الشحن" : "Expédié"}</option>
+                      <option value="livre">{isRtl ? "تم التوصيل" : "Livré"}</option>
+                      <option value="retourne">{isRtl ? "مسترجع" : "Retourné"}</option>
+                      <option value="annule">{isRtl ? "ملغي" : "Annulé"}</option>
                     </select>
                   </div>
                 </div>
