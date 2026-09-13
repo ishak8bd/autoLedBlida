@@ -663,21 +663,21 @@ export function OrdersTab() {
     ) : (
       /* TABLE VIEW (Available on all devices with horizontal scrolling & swipe hint) */
       <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden shadow-card">
-        {/* Mobile swipe hint */}
-        <div className="block md:hidden text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
-          {isRtl ? "مرر أفقياً لعرض كامل الجدول ↔" : "Glissez horizontalement pour voir tout le tableau ↔"}
+        {/* Swipe hint */}
+        <div className="text-[11px] text-zinc-400 px-3 py-2 bg-zinc-900/80 border-b border-zinc-800 text-center font-medium">
+          {isRtl ? "مرر أفقياً لعرض كامل الجدول وتفاصيل المنتجات ↔" : "Glissez horizontalement pour voir tout le tableau et les noms des produits ↔"}
         </div>
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-start text-xs sm:text-sm min-w-[750px]">
+          <table className="w-full text-start text-xs sm:text-sm min-w-max">
             <thead className="bg-zinc-900/90 text-zinc-400 border-b border-zinc-800 uppercase text-[11px] font-bold">
               <tr>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colOrder}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colClient}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colWilaya}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colProduct}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colTotal}</th>
-                <th className="p-3.5 px-4 text-start">{t.admin.ordersTab.colStatus}</th>
-                <th className="p-3.5 px-4 text-end">{t.admin.ordersTab.colActions}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colOrder}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colClient}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colWilaya}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colProduct}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colTotal}</th>
+                <th className="p-3.5 px-4 text-start whitespace-nowrap">{t.admin.ordersTab.colStatus}</th>
+                <th className="p-3.5 px-4 text-end whitespace-nowrap">{t.admin.ordersTab.colActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
@@ -705,41 +705,41 @@ export function OrdersTab() {
                   return (
                     <tr key={o.id} className="hover:bg-zinc-800/40 transition-colors">
                       {/* Order Ref & Date */}
-                      <td className="p-3.5 px-4">
+                      <td className="p-3.5 px-4 whitespace-nowrap">
                         <div className="font-mono font-bold text-white text-xs">
                           {o.id}
                         </div>
-                        <div className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5">
+                        <div className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5 whitespace-nowrap font-mono">
                           <Clock className="w-3 h-3 text-zinc-500" />
                           <span>{dateStr}</span>
                         </div>
                       </td>
 
                       {/* Client & Phone */}
-                      <td className="p-3.5 px-4">
-                        <div className="font-bold text-white">{o.customerName}</div>
-                        <div className="font-mono text-zinc-300 font-semibold text-xs mt-0.5">
+                      <td className="p-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-white whitespace-nowrap">{o.customerName}</div>
+                        <div className="font-mono text-zinc-300 font-semibold text-xs mt-0.5 whitespace-nowrap">
                           {o.phone}
                         </div>
                         {o.vehicleNote && (
-                          <div className="text-[11px] text-brand-redLight font-medium truncate max-w-xs mt-0.5">
+                          <div className="text-[11px] text-brand-redLight font-medium whitespace-nowrap mt-0.5">
                             🚗 {o.vehicleNote}
                           </div>
                         )}
                       </td>
 
                       {/* Wilaya & Address & Delivery Mode */}
-                      <td className="p-3.5 px-4">
-                        <div className="font-bold text-emerald-400 text-xs">
+                      <td className="p-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-emerald-400 text-xs whitespace-nowrap">
                           {o.wilaya}
                         </div>
                         {o.commune && (
-                          <div className="text-zinc-400 text-[11px] line-clamp-1 max-w-xs mt-0.5">
+                          <div className="text-zinc-400 text-[11px] whitespace-nowrap mt-0.5">
                             {o.commune}
                           </div>
                         )}
-                        <div className="mt-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <div className="mt-1 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
                             o.deliveryType === "desk"
                               ? "bg-sky-950/70 border border-sky-500/40 text-sky-300"
                               : "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
@@ -751,24 +751,25 @@ export function OrdersTab() {
                       </td>
 
                       {/* Product & Quantity */}
-                      <td className="p-3.5 px-4">
+                      <td className="p-3.5 px-4 whitespace-nowrap">
                         {summary.isMulti ? (
-                          <div className="space-y-1 text-xs py-0.5 max-w-sm">
-                            <div className="font-bold text-amber-300 font-mono text-xs">
-                              {summary.totalQty} {summary.totalQty > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}
+                          <div className="space-y-1 text-xs py-0.5 whitespace-nowrap">
+                            <div className="font-bold text-amber-300 font-mono text-xs whitespace-nowrap flex items-center gap-1.5">
+                              <Package className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>{summary.totalQty} {summary.totalQty > 1 ? (isRtl ? "قطع" : "articles") : (isRtl ? "قطعة" : "article")}</span>
                             </div>
-                            <div className="space-y-0.5">
+                            <div className="space-y-1 pl-1 rtl:pl-0 rtl:pr-1 whitespace-nowrap">
                               {summary.items.map((item, idx) => (
-                                <div key={idx} className="text-zinc-200 leading-snug">
-                                  <span className="text-zinc-400 font-bold mr-1 rtl:mr-0 rtl:ml-1">•</span>
-                                  <span className="font-medium text-white">{item.name}</span>{" "}
+                                <div key={idx} className="text-zinc-200 leading-snug whitespace-nowrap flex items-center gap-1.5">
+                                  <span className="text-zinc-500 font-bold">•</span>
+                                  <span className="font-semibold text-white whitespace-nowrap">{item.name}</span>
                                   <span className="font-mono text-amber-300 font-bold whitespace-nowrap">(x{item.quantity})</span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2.5 whitespace-nowrap">
                             {o.productImage && (
                               <img
                                 src={o.productImage}
@@ -776,12 +777,12 @@ export function OrdersTab() {
                                 className="w-10 h-10 rounded-lg object-cover bg-zinc-900 border border-zinc-700 shrink-0"
                               />
                             )}
-                            <div>
-                              <div className="font-semibold text-white line-clamp-1 max-w-xs">
+                            <div className="whitespace-nowrap">
+                              <div className="font-semibold text-white whitespace-nowrap text-xs sm:text-sm">
                                 {summary.items[0]?.name || o.productName}
                               </div>
-                              <div className="text-[11px] text-zinc-400 font-mono">
-                                Quantité : <span className="text-white font-bold">{summary.totalQty}</span>
+                              <div className="text-[11px] text-zinc-400 font-mono mt-0.5 whitespace-nowrap">
+                                {isRtl ? "الكمية : " : "Quantité : "}<span className="text-white font-bold">{summary.totalQty}</span>
                               </div>
                             </div>
                           </div>
@@ -790,22 +791,22 @@ export function OrdersTab() {
 
                       {/* Total Price */}
                       <td className="p-3.5 px-4 font-mono whitespace-nowrap">
-                        <div className="font-black text-white text-sm">
+                        <div className="font-black text-white text-sm whitespace-nowrap">
                           {totalVal?.toLocaleString()} DZD
                         </div>
                         {o.deliveryFee !== undefined && (
-                          <div className="text-[10px] text-zinc-400">
+                          <div className="text-[10px] text-zinc-400 whitespace-nowrap">
                             dont livr. {o.deliveryFee} DZD
                           </div>
                         )}
                       </td>
 
                       {/* Status Selector */}
-                      <td className="p-3.5 px-4">
+                      <td className="p-3.5 px-4 whitespace-nowrap">
                         <select
                           value={o.status || "nouveau"}
                           onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                          className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${
+                          className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer whitespace-nowrap ${
                             o.status === "confirme"
                               ? "bg-indigo-950/80 border-indigo-500/50 text-indigo-300"
                               : o.status === "expedie"
@@ -829,8 +830,8 @@ export function OrdersTab() {
                       </td>
 
                       {/* Action buttons */}
-                      <td className="p-3.5 px-4 text-end">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="p-3.5 px-4 text-end whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           {/* Phone call */}
                           <a
                             href={`tel:${o.phone}`}
