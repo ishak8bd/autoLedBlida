@@ -133,20 +133,6 @@ function isBcryptHash(str) {
 // In-memory OTP storage for password reset: email -> { code, expiresAt, attempts }
 const resetOtpStore = new Map();
 
-// Helper to create Nodemailer Gmail transporter (prefers .env secrets if set)
-function createMailTransporter(email, password) {
-  const user = process.env.GMAIL_USER || email;
-  const pass = process.env.GMAIL_APP_PASSWORD || password;
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: String(user).trim(),
-      pass: String(pass).replace(/\s+/g, "")
-    }
-  });
-}
-
 // Helper to read data safely (stripping BOM if written by Windows PowerShell)
 function readData() {
   try {
