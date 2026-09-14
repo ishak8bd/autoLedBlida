@@ -16,7 +16,11 @@ const DATA_FILE = path.join(__dirname, "data", "store.json");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || "autoledblida_super_secret_jwt_fallback_key_2026_x9k2m8";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET environment variable is not set. Refusing to start.");
+  process.exit(1);
+}
 
 // Security headers with helmet (configured to permit cross-origin image loading)
 app.use(
@@ -621,40 +625,6 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
   writeData(data);
 
   res.json({ success: true, message: "Informations d'administration mises à jour avec succès" });
-});
-
-// Legacy backward-compatibility endpoints
-app.post("/api/admin/verify-pin", (req, res) => {
-  const { pin } = req.body;
-  const data = readData();
-  if (!data) return res.status(500).json({ error: "Database error" });
-
-  const currentPass = data.settings?.adminAuth?.password || data.settings?.adminPin || "1234";
-  if (pin === currentPass) {
-    return res.json({ success: true, token: "admin-auth-" + Date.now() });
-  }
-  return res.status(401).json({ success: false, error: "Code d'accès incorrect" });
-});
-
-app.post("/api/admin/change-pin", (req, res) => {
-  const { oldPin, newPin } = req.body;
-  const data = readData();
-  if (!data) return res.status(500).json({ error: "Database error" });
-
-  const currentPass = data.settings?.adminAuth?.password || data.settings?.adminPin || "1234";
-  if (currentPass && currentPass !== oldPin) {
-    return res.status(400).json({ error: "Ancien code incorrect" });
-  }
-
-  if (!newPin || newPin.length < 6) {
-    return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères" });
-  }
-
-  data.settings.adminAuth = data.settings.adminAuth || {};
-  data.settings.adminAuth.password = newPin;
-  data.settings.adminPin = newPin;
-  writeData(data);
-  res.json({ success: true, message: "Mot de passe mis à jour avec succès" });
 });
 
 // 5. Admin: Update Site Settings (protected)
