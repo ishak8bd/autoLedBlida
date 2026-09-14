@@ -27,7 +27,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     setupAdminCredentials,
     sendResetOtp,
     verifyResetOtp,
-    recoverAdminPassword
+    recoverAdminPassword,
+    verifyAdminToken
   } = useData();
 
   // Modes: 'login' | 'setup' | 'recovery_otp' | 'recovery_fallback'
@@ -76,11 +77,20 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   const [fallbackError, setFallbackError] = useState("");
   const [fallbackSuccess, setFallbackSuccess] = useState("");
 
-  // Check initial configuration on mount
+  // Check initial configuration and existing session on mount
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
+        const savedToken = localStorage.getItem("autoled_admin_token");
+        if (savedToken && verifyAdminToken) {
+          const isValid = await verifyAdminToken(savedToken);
+          if (isValid && mounted) {
+            onAuthenticated();
+            return;
+          }
+        }
+
         const status = await getAdminAuthStatus();
         if (mounted) {
           if (!status?.isConfigured) {
@@ -98,7 +108,15 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [verifyAdminToken, onAuthenticated, getAdminAuthStatus]);
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-brand-red border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // 1. Handle Login Submit
   const handleLoginSubmit = async (e) => {

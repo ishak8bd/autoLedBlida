@@ -25,10 +25,17 @@ import { DeliveryTab } from "./admin/DeliveryTab";
 
 export function Admin({ onBackToSite }) {
   const { lang, toggleLang, isRtl, t } = useLanguage();
-  const { data } = useData();
+  const { data, logoutAdmin, adminToken } = useData();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
+
+  // If token is cleared (e.g. 401 response), lock admin session
+  React.useEffect(() => {
+    if (!adminToken && isAuthenticated) {
+      setIsAuthenticated(false);
+    }
+  }, [adminToken, isAuthenticated]);
 
   const orders = data?.orders || [];
   const appointments = data?.appointments || [];
@@ -43,6 +50,12 @@ export function Admin({ onBackToSite }) {
       />
     );
   }
+
+  const handleLogout = () => {
+    if (logoutAdmin) logoutAdmin();
+    setIsAuthenticated(false);
+    onBackToSite();
+  };
 
   return (
     <div className="min-h-screen bg-brand-bg text-slate-100 flex flex-col">
@@ -76,7 +89,7 @@ export function Admin({ onBackToSite }) {
 
           {/* Logout Button: Symbol only, no text */}
           <button
-            onClick={onBackToSite}
+            onClick={handleLogout}
             className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-rose-400 hover:text-rose-300 transition-colors shrink-0"
             title={t.admin.logout || "Quitter"}
             aria-label={t.admin.logout || "Quitter"}

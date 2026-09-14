@@ -87,6 +87,51 @@ export function DataProvider({ children }) {
     return { success: true, appointment: fallbackApt };
   };
 
+  // Token & Auth Header Management
+  const [adminToken, setAdminToken] = useState(() => {
+    return localStorage.getItem("autoled_admin_token") || "";
+  });
+
+  const saveAdminToken = (token) => {
+    if (token) {
+      localStorage.setItem("autoled_admin_token", token);
+      setAdminToken(token);
+    } else {
+      localStorage.removeItem("autoled_admin_token");
+      setAdminToken("");
+    }
+  };
+
+  const logoutAdmin = () => {
+    saveAdminToken("");
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("autoled_admin_token") || adminToken;
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const verifyAdminToken = async () => {
+    const token = localStorage.getItem("autoled_admin_token");
+    if (!token) return { valid: false };
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-token`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        return { valid: true };
+      }
+      saveAdminToken("");
+      return { valid: false };
+    } catch {
+      return { valid: Boolean(token) };
+    }
+  };
+
   // 2. Admin: Auth Status, Verify Password, Setup & Recovery
   const getAdminAuthStatus = async () => {
     try {
@@ -113,6 +158,7 @@ export function DataProvider({ children }) {
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        if (json.token) saveAdminToken(json.token);
         return { success: true, token: json.token };
       }
       if (json.requiresSetup) {
@@ -144,6 +190,7 @@ export function DataProvider({ children }) {
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        if (json.token) saveAdminToken(json.token);
         setData((prev) => ({
           ...prev,
           settings: {
@@ -210,6 +257,7 @@ export function DataProvider({ children }) {
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        if (json.token) saveAdminToken(json.token);
         setData((prev) => ({
           ...prev,
           settings: {
@@ -238,6 +286,7 @@ export function DataProvider({ children }) {
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        if (json.token) saveAdminToken(json.token);
         setData((prev) => ({
           ...prev,
           settings: {
@@ -287,9 +336,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/change-credentials`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone })
       });
+      if (res.status === 401) saveAdminToken("");
       const json = await res.json();
       if (res.ok && json.success) {
         setData((prev) => {
@@ -351,9 +401,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/settings`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(newSettings)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => ({ ...prev, settings: json.settings }));
@@ -378,9 +429,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/phones`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(phoneData)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => ({
@@ -434,7 +486,11 @@ export function DataProvider({ children }) {
 
   const deletePhone = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/phones/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/admin/phones/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => ({
@@ -482,9 +538,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(productData)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => {
@@ -520,7 +577,11 @@ export function DataProvider({ children }) {
 
   const deleteProduct = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/products/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/admin/products/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -547,9 +608,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/categories`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(catData)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => ({
@@ -579,7 +641,11 @@ export function DataProvider({ children }) {
 
   const deleteCategory = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/categories/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/admin/categories/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -606,9 +672,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/appointments/${id}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -632,7 +699,11 @@ export function DataProvider({ children }) {
 
   const deleteAppointment = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/appointments/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/admin/appointments/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -665,9 +736,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(aptData)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         const savedApt = json.appointment;
@@ -762,9 +834,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/orders/${id}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -788,7 +861,11 @@ export function DataProvider({ children }) {
 
   const deleteOrder = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/orders/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/admin/orders/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         setData((prev) => ({
           ...prev,
@@ -821,9 +898,10 @@ export function DataProvider({ children }) {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(orderData)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         const savedOrder = json.order;
@@ -876,9 +954,10 @@ export function DataProvider({ children }) {
       const body = isSingle ? feesOrWilayaData : { deliveryFees: feesOrWilayaData };
       const res = await fetch(`${API_BASE}/api/admin/delivery-fees`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(body)
       });
+      if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
         setData((prev) => ({
@@ -931,9 +1010,10 @@ export function DataProvider({ children }) {
         try {
           const res = await fetch(`${API_BASE}/api/admin/upload`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ dataUrl, filename: file.name })
           });
+          if (res.status === 401) saveAdminToken("");
           if (res.ok) {
             const json = await res.json();
             resolve(json.url);
@@ -956,6 +1036,9 @@ export function DataProvider({ children }) {
         loading,
         error,
         refresh: loadData,
+        adminToken,
+        logoutAdmin,
+        verifyAdminToken,
         createAppointment,
         saveAppointment,
         verifyPin,

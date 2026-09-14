@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 /.pnp
 .pnp.js
@@ -14,11 +14,21 @@ yarn-error.log*
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Local data & secrets
+server/data/store.json
+!server/data/store.example.json
+
+# Uploaded images (avoid committing customer/admin uploads to git)
+public/uploads/*
+!public/uploads/.gitkeep
+dist/uploads/*
 
 # Editor & OS files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+

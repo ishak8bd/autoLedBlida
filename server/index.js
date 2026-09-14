@@ -1,5 +1,10 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { rateLimit } from "express-rate-limit";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,27 +16,125 @@ const DATA_FILE = path.join(__dirname, "data", "store.json");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || "autoledblida_super_secret_jwt_fallback_key_2026_x9k2m8";
+
+// Security headers with helmet (configured to permit cross-origin image loading)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false
+  })
+);
+
+// Restricted CORS configuration
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:5000,http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:") ||
+        origin.endsWith(".onrender.com")
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error("Accès refusé par la politique CORS"));
+    },
+    credentials: true
+  })
+);
+
+app.use(express.json({ limit: "25mb" }));
+
+// Rate Limiters
+// 1. Auth limiter (admin login & recovery) - 10 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Trop de tentatives. Veuillez réessayer dans 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// 2. OTP limiter (protect Gmail quota) - 3 requests per 15 minutes
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: "Trop de demandes de code. Veuillez patienter 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// 3. Customer orders & appointments limiter - 40 per 15 minutes (CGNAT-friendly for Algerian 4G)
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { error: "Trop de requêtes envoyées. Veuillez patienter quelques minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Admin JWT Authentication Middleware
+function requireAdminAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Authentification requise. Jeton manquant." });
+  }
+
+  const token = authHeader.slice(7).trim();
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        error: "Session expirée, veuillez vous reconnecter",
+        expired: true
+      });
+    }
+    return res.status(401).json({ error: "Jeton d'authentification invalide" });
+  }
+}
+
+// Check if string is a bcrypt hash ($2a$, $2b$, $2y$)
+function isBcryptHash(str) {
+  return typeof str === "string" && str.startsWith("$2");
+}
 
 // In-memory OTP storage for password reset: email -> { code, expiresAt, attempts }
 const resetOtpStore = new Map();
 
-// Helper to create Nodemailer Gmail transporter
+// Helper to create Nodemailer Gmail transporter (prefers .env secrets if set)
 function createMailTransporter(email, password) {
+  const user = process.env.GMAIL_USER || email;
+  const pass = process.env.GMAIL_APP_PASSWORD || password;
+
   return nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: email,
-      pass: String(password).replace(/\s+/g, "")
+      user: String(user).trim(),
+      pass: String(pass).replace(/\s+/g, "")
     }
   });
 }
 
-app.use(cors());
-app.use(express.json({ limit: "25mb" }));
-
 // Helper to read data safely (stripping BOM if written by Windows PowerShell)
 function readData() {
   try {
+    if (!fs.existsSync(DATA_FILE)) {
+      const exampleFile = path.join(__dirname, "data", "store.example.json");
+      if (fs.existsSync(exampleFile)) {
+        fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+        fs.copyFileSync(exampleFile, DATA_FILE);
+      }
+    }
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
     const clean = raw.replace(/^\uFEFF/, "").trim();
     return JSON.parse(clean);
@@ -83,8 +186,8 @@ function isValidAlgerianPhone(phone) {
   return /^0[567][0-9]{8}$/.test(clean);
 }
 
-// 2. Public endpoint: Submit appointment
-app.post("/api/appointments", (req, res) => {
+// 2. Public endpoint: Submit appointment (rate-limited, no auth required)
+app.post("/api/appointments", orderLimiter, (req, res) => {
   const { name, phone, vehicle, service, preferredDate, message } = req.body;
   const cleanedPhone = cleanAlgerianPhone(phone);
 
@@ -119,8 +222,8 @@ app.post("/api/appointments", (req, res) => {
   res.status(201).json({ success: true, appointment: newAppointment });
 });
 
-// 2b. Public endpoint: Submit product order
-app.post("/api/orders", (req, res) => {
+// 2b. Public endpoint: Submit product order (rate-limited, no auth required)
+app.post("/api/orders", orderLimiter, (req, res) => {
   const { customerName, phone, wilaya, commune, quantity, vehicleNote, productId, productName, productPrice, productImage, deliveryType, deliveryFee } = req.body;
   const cleanedPhone = cleanAlgerianPhone(phone);
 
@@ -205,8 +308,13 @@ app.get("/api/admin/auth-status", (req, res) => {
   });
 });
 
-// 4. Admin: Setup Initial Credentials
-app.post("/api/admin/setup-credentials", (req, res) => {
+// 3b. Admin: Verify existing JWT Session Token
+app.get("/api/admin/verify-token", requireAdminAuth, (req, res) => {
+  res.json({ success: true, valid: true });
+});
+
+// 4. Admin: Setup Initial Credentials (rate-limited, hashed with bcrypt)
+app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
   const { email, emailPassword, phone, password } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
@@ -221,42 +329,68 @@ app.post("/api/admin/setup-credentials", (req, res) => {
     return res.status(400).json({ error: "Le mot de passe admin doit comporter au moins 6 caractères ou chiffres" });
   }
 
+  const hashedPassword = await bcrypt.hash(String(password), 10);
+
   data.settings = data.settings || {};
   data.settings.adminAuth = {
     recoveryEmail: email.trim().toLowerCase(),
     recoveryEmailPassword: String(emailPassword),
     recoveryPhone: (phone || "").trim(),
-    password: String(password)
+    password: hashedPassword
   };
-  data.settings.adminPin = String(password);
+  data.settings.adminPin = hashedPassword;
   writeData(data);
 
-  res.json({ success: true, message: "Accès administrateur configuré avec succès" });
+  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
+  res.json({ success: true, token, message: "Accès administrateur configuré avec succès" });
 });
 
-// 5. Admin: Verify Password
-app.post("/api/admin/verify-password", (req, res) => {
+// 5. Admin: Verify Password & Issue 7-Day JWT Token
+app.post("/api/admin/verify-password", authLimiter, async (req, res) => {
   const { password } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
   const storedAuth = data.settings?.adminAuth;
   if (!storedAuth || !storedAuth.password) {
-    if (password && (password === data.settings?.adminPin || password === "1234")) {
-      return res.json({ success: true, requiresSetup: true, token: "admin-auth-" + Date.now() });
+    const defaultPin = data.settings?.adminPin || "1234";
+    if (password && (password === defaultPin || password === "1234")) {
+      const token = jwt.sign({ role: "admin", requiresSetup: true }, JWT_SECRET, { expiresIn: "1h" });
+      return res.json({ success: true, requiresSetup: true, token });
     }
+    console.warn(`[SECURITY ALERT] Tentative de connexion admin non configurée échouée depuis IP: ${req.ip}`);
     return res.status(200).json({ success: false, requiresSetup: true });
   }
 
-  if (String(password) === String(storedAuth.password)) {
-    return res.json({ success: true, token: "admin-auth-" + Date.now() });
+  let isMatch = false;
+  const storedPassword = String(storedAuth.password);
+
+  if (isBcryptHash(storedPassword)) {
+    isMatch = await bcrypt.compare(String(password), storedPassword);
+  } else {
+    // Legacy plaintext password migration boundary
+    if (String(password) === storedPassword) {
+      isMatch = true;
+      // Auto-upgrade to bcrypt hash immediately and permanently
+      const hashedPassword = await bcrypt.hash(String(password), 10);
+      storedAuth.password = hashedPassword;
+      data.settings.adminPin = hashedPassword;
+      writeData(data);
+      console.log(`[SECURITY MIGRATION] Mot de passe admin migré avec succès vers bcrypt hash.`);
+    }
   }
 
+  if (isMatch) {
+    const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
+    return res.json({ success: true, token });
+  }
+
+  console.warn(`[SECURITY ALERT] Échec de connexion admin depuis IP: ${req.ip} à ${new Date().toISOString()}`);
   return res.status(401).json({ success: false, error: "Mot de passe incorrect" });
 });
 
-// 6. Admin Option A: Send 6-Digit Verification OTP via Nodemailer
-app.post("/api/admin/send-reset-otp", async (req, res) => {
+// 6. Admin Option A: Send 6-Digit Verification OTP via Nodemailer (Rate limited)
+app.post("/api/admin/send-reset-otp", otpLimiter, async (req, res) => {
   const { email } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Erreur base de données" });
@@ -284,7 +418,8 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
   });
 
   // Attempt sending via Nodemailer
-  if (storedAuth.recoveryEmailPassword) {
+  const hasAppPassword = Boolean(process.env.GMAIL_APP_PASSWORD || storedAuth.recoveryEmailPassword);
+  if (hasAppPassword) {
     try {
       const transporter = createMailTransporter(
         storedAuth.recoveryEmail,
@@ -309,7 +444,7 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
       `;
 
       await transporter.sendMail({
-        from: `"AutoLedBlida Admin" <${storedAuth.recoveryEmail}>`,
+        from: `"AutoLedBlida Admin" <${process.env.GMAIL_USER || storedAuth.recoveryEmail}>`,
         to: storedAuth.recoveryEmail,
         subject: `Code de vérification AutoLedBlida : ${otp}`,
         text: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`,
@@ -337,8 +472,8 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
   }
 });
 
-// 7. Admin Option A: Verify OTP & Set New Password
-app.post("/api/admin/verify-reset-otp", (req, res) => {
+// 7. Admin Option A: Verify OTP & Set New Password (hashed with bcrypt, returns JWT)
+app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
   const { email, otp, newPassword } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Erreur base de données" });
@@ -378,20 +513,23 @@ app.post("/api/admin/verify-reset-otp", (req, res) => {
     return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères." });
   }
 
-  // Success
+  // Success: hash new password with bcrypt
+  const hashedPassword = await bcrypt.hash(String(newPassword), 10);
   resetOtpStore.delete(normalizedEmail);
-  data.settings.adminAuth.password = String(newPassword);
-  data.settings.adminPin = String(newPassword);
+  data.settings.adminAuth.password = hashedPassword;
+  data.settings.adminPin = hashedPassword;
   writeData(data);
 
+  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
   return res.json({
     success: true,
+    token,
     message: "Mot de passe réinitialisé avec succès !"
   });
 });
 
-// 8. Admin Option B: Direct Rescue with Gmail + Email Password (no email required)
-app.post("/api/admin/recover-password", (req, res) => {
+// 8. Admin Option B: Direct Rescue with Gmail + Email Password (returns JWT)
+app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
   const { recoveryEmail, recoveryEmailPassword, newPassword } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
@@ -406,10 +544,11 @@ app.post("/api/admin/recover-password", (req, res) => {
     recoveryEmail.trim().toLowerCase() === String(storedAuth.recoveryEmail).trim().toLowerCase();
 
   const cleanInputPass = String(recoveryEmailPassword || "").replace(/\s+/g, "");
-  const cleanStoredPass = String(storedAuth.recoveryEmailPassword || "").replace(/\s+/g, "");
+  const cleanStoredPass = String(storedAuth.recoveryEmailPassword || process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
   const emailPasswordMatch = cleanInputPass === cleanStoredPass;
 
   if (!emailMatch || !emailPasswordMatch) {
+    console.warn(`[SECURITY ALERT] Échec tentative de récupération de secours depuis IP: ${req.ip}`);
     return res.status(401).json({
       error: "Adresse Gmail ou mot de passe de l'email / clé de secours incorrect."
     });
@@ -421,18 +560,21 @@ app.post("/api/admin/recover-password", (req, res) => {
     });
   }
 
-  data.settings.adminAuth.password = String(newPassword);
-  data.settings.adminPin = String(newPassword);
+  const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+  data.settings.adminAuth.password = hashedPassword;
+  data.settings.adminPin = hashedPassword;
   writeData(data);
 
+  const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "7d" });
   res.json({
     success: true,
+    token,
     message: "Mot de passe réinitialisé avec succès via la méthode de secours !"
   });
 });
 
-// 7. Admin: Change Credentials (from Settings Tab)
-app.post("/api/admin/change-credentials", (req, res) => {
+// 9. Admin: Change Credentials (protected by requireAdminAuth)
+app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => {
   const { currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
@@ -440,7 +582,14 @@ app.post("/api/admin/change-credentials", (req, res) => {
   const storedAuth = data.settings?.adminAuth || {};
   const currentExpected = storedAuth.password || data.settings?.adminPin || "1234";
 
-  if (String(currentPassword) !== String(currentExpected)) {
+  let isMatch = false;
+  if (isBcryptHash(currentExpected)) {
+    isMatch = await bcrypt.compare(String(currentPassword), currentExpected);
+  } else {
+    isMatch = String(currentPassword) === String(currentExpected);
+  }
+
+  if (!isMatch) {
     return res.status(401).json({ error: "Mot de passe actuel incorrect" });
   }
 
@@ -448,8 +597,9 @@ app.post("/api/admin/change-credentials", (req, res) => {
     if (String(newPassword).length < 6) {
       return res.status(400).json({ error: "Le nouveau mot de passe doit comporter au moins 6 caractères" });
     }
-    storedAuth.password = String(newPassword);
-    data.settings.adminPin = String(newPassword);
+    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    storedAuth.password = hashedPassword;
+    data.settings.adminPin = hashedPassword;
   }
 
   if (recoveryEmail) {
@@ -507,8 +657,8 @@ app.post("/api/admin/change-pin", (req, res) => {
   res.json({ success: true, message: "Mot de passe mis à jour avec succès" });
 });
 
-// 5. Admin: Update Site Settings
-app.put("/api/admin/settings", (req, res) => {
+// 5. Admin: Update Site Settings (protected)
+app.put("/api/admin/settings", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -520,8 +670,8 @@ app.put("/api/admin/settings", (req, res) => {
   res.json({ success: true, settings: data.settings });
 });
 
-// 6. Admin: Phone numbers management (Add / Edit / Delete)
-app.post("/api/admin/phones", (req, res) => {
+// 6. Admin: Phone numbers management (Add / Edit / Delete) (protected)
+app.post("/api/admin/phones", requireAdminAuth, (req, res) => {
   const { id, number, labelFr, labelAr, isPrimary, whatsapp } = req.body;
   if (!number) return res.status(400).json({ error: "Numéro requis" });
 
@@ -573,7 +723,7 @@ app.post("/api/admin/phones", (req, res) => {
   res.json({ success: true, phoneNumbers: phones, whatsappMain: data.settings.whatsappMain });
 });
 
-app.delete("/api/admin/phones/:id", (req, res) => {
+app.delete("/api/admin/phones/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -592,14 +742,14 @@ app.delete("/api/admin/phones/:id", (req, res) => {
   res.json({ success: true, phoneNumbers: data.settings.phoneNumbers, whatsappMain: data.settings.whatsappMain });
 });
 
-// 6b. Admin: Delivery Fees Management (Get & Update per Wilaya or Bulk)
-app.get("/api/admin/delivery-fees", (req, res) => {
+// 6b. Admin: Delivery Fees Management (Get & Update per Wilaya or Bulk) (protected)
+app.get("/api/admin/delivery-fees", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
   res.json({ success: true, deliveryFees: data.deliveryFees || {} });
 });
 
-app.put("/api/admin/delivery-fees", (req, res) => {
+app.put("/api/admin/delivery-fees", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -624,8 +774,8 @@ app.put("/api/admin/delivery-fees", (req, res) => {
   res.json({ success: true, deliveryFees: data.deliveryFees });
 });
 
-// 7. Admin: Product CRUD
-app.post("/api/admin/products", (req, res) => {
+// 7. Admin: Product CRUD (protected)
+app.post("/api/admin/products", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -657,7 +807,7 @@ app.post("/api/admin/products", (req, res) => {
   res.status(201).json({ success: true, product: newProduct });
 });
 
-app.put("/api/admin/products/:id", (req, res) => {
+app.put("/api/admin/products/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -683,7 +833,7 @@ app.put("/api/admin/products/:id", (req, res) => {
   res.json({ success: true, product: data.products[idx] });
 });
 
-app.delete("/api/admin/products/:id", (req, res) => {
+app.delete("/api/admin/products/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -692,8 +842,8 @@ app.delete("/api/admin/products/:id", (req, res) => {
   res.json({ success: true, message: "Produit supprimé" });
 });
 
-// 8. Admin: Category CRUD
-app.post("/api/admin/categories", (req, res) => {
+// 8. Admin: Category CRUD (protected)
+app.post("/api/admin/categories", requireAdminAuth, (req, res) => {
   const { nameFr, nameAr } = req.body;
   if (!nameFr) return res.status(400).json({ error: "Nom requis" });
 
@@ -713,7 +863,7 @@ app.post("/api/admin/categories", (req, res) => {
   res.status(201).json({ success: true, category: newCat });
 });
 
-app.delete("/api/admin/categories/:id", (req, res) => {
+app.delete("/api/admin/categories/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -722,8 +872,8 @@ app.delete("/api/admin/categories/:id", (req, res) => {
   res.json({ success: true, categories: data.categories });
 });
 
-// 9. Admin: Appointment CRUD (Create, Edit, Status & Deletion)
-app.post("/api/admin/appointments", (req, res) => {
+// 9. Admin: Appointment CRUD (Create, Edit, Status & Deletion) (protected)
+app.post("/api/admin/appointments", requireAdminAuth, (req, res) => {
   const { name, phone, vehicle, service, preferredDate, message, status } = req.body;
   if (!name || !phone || !vehicle) {
     return res.status(400).json({ error: "Nom, téléphone et véhicule requis" });
@@ -749,7 +899,7 @@ app.post("/api/admin/appointments", (req, res) => {
   res.status(201).json({ success: true, appointment: newApt });
 });
 
-app.put("/api/admin/appointments/:id", (req, res) => {
+app.put("/api/admin/appointments/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -774,7 +924,7 @@ app.put("/api/admin/appointments/:id", (req, res) => {
   res.json({ success: true, appointment: data.appointments[idx] });
 });
 
-app.put("/api/admin/appointments/:id/status", (req, res) => {
+app.put("/api/admin/appointments/:id/status", requireAdminAuth, (req, res) => {
   const { status } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
@@ -787,7 +937,7 @@ app.put("/api/admin/appointments/:id/status", (req, res) => {
   res.json({ success: true, appointment: apt });
 });
 
-app.delete("/api/admin/appointments/:id", (req, res) => {
+app.delete("/api/admin/appointments/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -796,8 +946,8 @@ app.delete("/api/admin/appointments/:id", (req, res) => {
   res.json({ success: true, message: "Rendez-vous supprimé" });
 });
 
-// 9b. Admin: Order CRUD (Create, Edit, Status & Deletion)
-app.post("/api/admin/orders", (req, res) => {
+// 9b. Admin: Order CRUD (Create, Edit, Status & Deletion) (protected)
+app.post("/api/admin/orders", requireAdminAuth, (req, res) => {
   const { customerName, phone, wilaya, commune, productId, productName, quantity, productPrice, deliveryType, deliveryFee, total, vehicleNote, status, items } = req.body;
   if (!customerName || !phone) {
     return res.status(400).json({ error: "Nom et téléphone requis" });
@@ -835,7 +985,7 @@ app.post("/api/admin/orders", (req, res) => {
   res.status(201).json({ success: true, order: newOrder });
 });
 
-app.put("/api/admin/orders/:id", (req, res) => {
+app.put("/api/admin/orders/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -870,7 +1020,7 @@ app.put("/api/admin/orders/:id", (req, res) => {
   res.json({ success: true, order: data.orders[idx] });
 });
 
-app.put("/api/admin/orders/:id/status", (req, res) => {
+app.put("/api/admin/orders/:id/status", requireAdminAuth, (req, res) => {
   const { status } = req.body;
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
@@ -883,7 +1033,7 @@ app.put("/api/admin/orders/:id/status", (req, res) => {
   res.json({ success: true, order });
 });
 
-app.delete("/api/admin/orders/:id", (req, res) => {
+app.delete("/api/admin/orders/:id", requireAdminAuth, (req, res) => {
   const data = readData();
   if (!data) return res.status(500).json({ error: "Database error" });
 
@@ -892,8 +1042,8 @@ app.delete("/api/admin/orders/:id", (req, res) => {
   res.json({ success: true, message: "Commande supprimée" });
 });
 
-// 10. Admin: Upload Image File (Base64 -> /uploads/filename)
-app.post("/api/admin/upload", (req, res) => {
+// 10. Admin: Upload Image File (Base64 -> /uploads/filename) (protected)
+app.post("/api/admin/upload", requireAdminAuth, (req, res) => {
   const { dataUrl, filename } = req.body;
   if (!dataUrl) return res.status(400).json({ error: "Image data requise" });
 
