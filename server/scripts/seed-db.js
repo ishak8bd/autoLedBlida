@@ -55,7 +55,7 @@ async function seedDatabase() {
           nameAr: cat.nameAr || "",
           count: Number(cat.count) || 0
         },
-        { upsert: true, new: true, runValidators: true }
+        { upsert: true, returnDocument: 'after', runValidators: true }
       );
       catCount++;
     }
@@ -86,7 +86,7 @@ async function seedDatabase() {
           descriptionFr: prod.descriptionFr || prod.description || "",
           descriptionAr: prod.descriptionAr || ""
         },
-        { upsert: true, new: true, runValidators: true }
+        { upsert: true, returnDocument: 'after', runValidators: true }
       );
       prodCount++;
     }
@@ -117,7 +117,7 @@ async function seedDatabase() {
           total: Number(ord.total) || 0,
           status: ord.status || "nouveau"
         },
-        { upsert: true, new: true, runValidators: true }
+        { upsert: true, returnDocument: 'after', runValidators: true }
       );
       orderCount++;
     }
@@ -143,7 +143,7 @@ async function seedDatabase() {
           message: apt.message || "",
           status: apt.status || "nouveau"
         },
-        { upsert: true, new: true, runValidators: true }
+        { upsert: true, returnDocument: 'after', runValidators: true }
       );
       aptCount++;
     }
@@ -163,7 +163,7 @@ async function seedDatabase() {
   await Settings.findOneAndUpdate(
     { _id: "site_settings" },
     { $set: settingsData },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
   console.log(`[SEED] ✅ Paramètres et frais de livraison synchronisés.`);
 
