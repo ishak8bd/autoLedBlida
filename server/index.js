@@ -84,16 +84,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// 2. OTP limiter (protect Gmail quota) - 3 requests per 15 minutes
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 3,
-  message: { error: "Trop de demandes de code. Veuillez patienter 15 minutes." },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// 3. Customer orders & appointments limiter - 40 per 15 minutes (CGNAT-friendly for Algerian 4G)
+// 2. Customer orders & appointments limiter - 40 per 15 minutes (CGNAT-friendly for Algerian 4G)
 const orderLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
@@ -529,8 +520,8 @@ app.post("/api/admin/verify-password", authLimiter, async (req, res) => {
   }
 });
 
-// 6. Admin Option A: Send 6-Digit Verification OTP via Nodemailer (Rate limited)
-app.post("/api/admin/send-reset-otp", otpLimiter, async (req, res) => {
+// 6. Admin Option A: Send 6-Digit Verification OTP via Nodemailer
+app.post("/api/admin/send-reset-otp", async (req, res) => {
   const { email } = req.body;
   try {
     let storedAuth = null;
