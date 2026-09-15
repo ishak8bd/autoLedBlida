@@ -248,12 +248,29 @@ export function DataProvider({ children }) {
     }
   };
 
-  const verifyResetOtp = async ({ email, otp, newPassword }) => {
+  const checkResetOtp = async ({ email, otp }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/check-reset-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return { success: true, message: json.message, resetToken: json.resetToken };
+      }
+      return { success: false, error: json.error || "Code incorrect" };
+    } catch {
+      return { success: false, error: "Erreur de connexion au serveur" };
+    }
+  };
+
+  const verifyResetOtp = async ({ email, otp, resetToken, newPassword }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/verify-reset-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, newPassword })
+        body: JSON.stringify({ email, otp, resetToken, newPassword })
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -271,7 +288,7 @@ export function DataProvider({ children }) {
         }));
         return { success: true, message: json.message };
       }
-      return { success: false, error: json.error || "Code de vérification incorrect" };
+      return { success: false, error: json.error || "Code incorrect" };
     } catch {
       return { success: false, error: "Erreur réseau. Utilisez l'Option B (clé de secours)." };
     }
@@ -1048,6 +1065,7 @@ export function DataProvider({ children }) {
         setupAdminCredentials,
         recoverAdminPassword,
         sendResetOtp,
+        checkResetOtp,
         verifyResetOtp,
         changeAdminCredentials,
         updateSettings,

@@ -26,6 +26,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     verifyAdminPassword,
     setupAdminCredentials,
     sendResetOtp,
+    checkResetOtp,
     verifyResetOtp,
     recoverAdminPassword,
     verifyAdminToken
@@ -58,12 +59,16 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   const [otpEmail, setOtpEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpResetToken, setOtpResetToken] = useState("");
   const [otpNewPassword, setOtpNewPassword] = useState("");
   const [otpConfirmPassword, setOtpConfirmPassword] = useState("");
   const [showOtpNewPass, setShowOtpNewPass] = useState(false);
+  const [showOtpConfirmPass, setShowOtpConfirmPass] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpSuccess, setOtpSuccess] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   // Option B (Direct Fallback Rescue)
   const [fallbackForm, setFallbackForm] = useState({
@@ -221,6 +226,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     setIsSendingOtp(true);
     setOtpError("");
     setOtpSuccess("");
+    setOtpVerified(false);
+    setOtpResetToken("");
 
     const res = await sendResetOtp(otpEmail);
     setIsSendingOtp(false);
@@ -242,8 +249,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     }
   };
 
-  // 4. Option A: Verify OTP & Reset Password
-  const handleVerifyOtpSubmit = async (e) => {
+  // 4a. Option A (Step 1): Check OTP Code
+  const handleCheckOtpSubmit = async (e) => {
     e.preventDefault();
     setOtpError("");
     setOtpSuccess("");
@@ -254,6 +261,35 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
       );
       return;
     }
+
+    setIsVerifyingOtp(true);
+    const res = await checkResetOtp({
+      email: otpEmail,
+      otp: otpCode
+    });
+    setIsVerifyingOtp(false);
+
+    if (res.success) {
+      setOtpVerified(true);
+      setOtpResetToken(res.resetToken || "");
+      setOtpSuccess(
+        isRtl
+          ? "الرمز صحيح ! يمكنك الآن تغيير كلمة المرور."
+          : "Code correct ! Vous pouvez maintenant modifier votre mot de passe."
+      );
+    } else {
+      setOtpError(
+        res.error || (isRtl ? "رمز التحقق غير صحيح." : "Code incorrect.")
+      );
+    }
+  };
+
+  // 4b. Option A (Step 2): Set New Password after OTP verified
+  const handleSetNewPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setOtpError("");
+    setOtpSuccess("");
+
     if (!otpNewPassword || otpNewPassword.length < 6) {
       setOtpError(
         isRtl
@@ -273,6 +309,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     const res = await verifyResetOtp({
       email: otpEmail,
       otp: otpCode,
+      resetToken: otpResetToken,
       newPassword: otpNewPassword
     });
     setIsSubmitting(false);
@@ -280,15 +317,15 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     if (res.success) {
       setOtpSuccess(
         isRtl
-          ? "تم تعيين كلمة المرور الجديدة بنجاح! جاري الدخول..."
-          : "Mot de passe réinitialisé avec succès ! Connexion en cours..."
+          ? "تم تغيير كلمة المرور بنجاح! جاري الدخول..."
+          : "Mot de passe modifié avec succès ! Connexion en cours..."
       );
       setTimeout(() => {
         onAuthenticated();
       }, 800);
     } else {
       setOtpError(
-        res.error || (isRtl ? "رمز التحقق غير صحيح." : "Code de vérification incorrect.")
+        res.error || (isRtl ? "رمز التحقق غير صحيح." : "Code incorrect.")
       );
     }
   };
@@ -655,9 +692,9 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                   </span>
                 </button>
               </form>
-            ) : (
-              /* Step 2: Enter 6-digit OTP & New Password */
-              <form onSubmit={handleVerifyOtpSubmit} className="space-y-3.5">
+            ) : !otpVerified ? (
+              /* Step 2: Enter 6-digit OTP Code ONLY */
+              <form onSubmit={handleCheckOtpSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-zinc-300">
@@ -667,7 +704,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                       type="button"
                       onClick={handleSendOtp}
                       disabled={isSendingOtp}
-                      className="text-[11px] text-amber-400 hover:underline"
+                      className="text-[11px] text-amber-400 hover:underline cursor-pointer"
                     >
                       {isRtl ? "إعادة إرسال الكود" : "Renvoyer un code"}
                     </button>
@@ -678,10 +715,50 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                     maxLength={6}
                     autoFocus
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) => {
+                      setOtpCode(e.target.value.replace(/\D/g, ""));
+                      setOtpError("");
+                    }}
                     placeholder="123456"
                     className="w-full py-3 text-center tracking-[0.6em] text-2xl font-mono rounded-xl bg-zinc-900 border border-brand-red text-white focus:outline-none shadow-glow-red"
                   />
+                  <p className="text-[11px] text-zinc-400 text-center">
+                    {isRtl ? `تم إرسال الكود إلى ${otpEmail}` : `Code envoyé à : ${otpEmail}`}
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp || otpCode.length < 6}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-redLight hover:from-brand-redDark hover:to-brand-red text-white font-bold text-xs shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {isVerifyingOtp
+                      ? (isRtl ? "جاري التحقق من الرمز..." : "Vérification du code...")
+                      : (isRtl ? "تأكيد الرمز" : "Vérifier le code")}
+                  </span>
+                </button>
+              </form>
+            ) : (
+              /* Step 3: OTP is correct -> show Changing Password option */
+              <form onSubmit={handleSetNewPasswordSubmit} className="space-y-3.5">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-400">
+                  <span className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{isRtl ? `رمز التحقق صحيح (${otpCode})` : `Code vérifié (${otpCode})`}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpVerified(false);
+                      setOtpError("");
+                      setOtpSuccess("");
+                    }}
+                    className="text-[11px] text-zinc-400 hover:text-white underline cursor-pointer"
+                  >
+                    {isRtl ? "تغيير" : "Modifier le code"}
+                  </button>
                 </div>
 
                 {/* New Password */}
@@ -694,6 +771,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                       type={showOtpNewPass ? "text" : "password"}
                       required
                       minLength={6}
+                      autoFocus
                       value={otpNewPassword}
                       onChange={(e) => setOtpNewPassword(e.target.value)}
                       placeholder="••••••••"
@@ -702,7 +780,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                     <button
                       type="button"
                       onClick={() => setShowOtpNewPass(!showOtpNewPass)}
-                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white cursor-pointer"
                     >
                       {showOtpNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
@@ -714,14 +792,23 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                   <label className="text-xs font-semibold text-zinc-300">
                     {isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={otpConfirmPassword}
-                    onChange={(e) => setOtpConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full py-2.5 px-3.5 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showOtpConfirmPass ? "text" : "password"}
+                      required
+                      value={otpConfirmPassword}
+                      onChange={(e) => setOtpConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpConfirmPass(!showOtpConfirmPass)}
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white cursor-pointer"
+                    >
+                      {showOtpConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -730,7 +817,11 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-red to-brand-redLight hover:from-brand-redDark hover:to-brand-red text-white font-bold text-xs shadow-glow-red transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>{isSubmitting ? (isRtl ? "جاري التحقق..." : "Vérification...") : (isRtl ? "تأكيد والدخول" : "Confirmer et Déverrouiller")}</span>
+                  <span>
+                    {isSubmitting
+                      ? (isRtl ? "جاري تغيير كلمة المرور..." : "Enregistrement en cours...")
+                      : (isRtl ? "حفظ كلمة المرور والدخول" : "Enregistrer le mot de passe et se connecter")}
+                  </span>
                 </button>
               </form>
             )}

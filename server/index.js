@@ -686,9 +686,9 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
   }
 });
 
-// 7. Admin Option A: Verify OTP & Set New Password (hashed with bcrypt, returns JWT)
-app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
-  const { email, otp, newPassword } = req.body;
+// 7a. Admin Option A: Check OTP Code (Step 1 - verify code only)
+app.post("/api/admin/check-reset-otp", authLimiter, async (req, res) => {
+  const { email, otp } = req.body;
   try {
     let storedAuth = null;
     if (isMongo()) {
@@ -726,7 +726,85 @@ app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
         resetOtpStore.delete(normalizedEmail);
         return res.status(400).json({ error: "Trop de tentatives incorrectes. Veuillez demander un nouveau code." });
       }
-      return res.status(400).json({ error: "Code de vérification incorrect. Veuillez vérifier vos emails." });
+      return res.status(400).json({ error: "Code incorrect. Veuillez vérifier vos emails." });
+    }
+
+    record.verified = true;
+    const resetToken = jwt.sign(
+      { role: "admin_password_reset", email: normalizedEmail },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Code correct !",
+      resetToken
+    });
+  } catch (err) {
+    console.error("Check reset OTP error:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// 7b. Admin Option A: Set New Password (Step 2 - with verified OTP or resetToken)
+app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
+  const { email, otp, resetToken, newPassword } = req.body;
+  try {
+    let storedAuth = null;
+    if (isMongo()) {
+      const s = await Settings.getSingleton();
+      storedAuth = s?.adminAuth;
+    } else {
+      const data = readData();
+      storedAuth = data?.settings?.adminAuth;
+    }
+
+    if (!storedAuth || !storedAuth.recoveryEmail) {
+      return res.status(400).json({ error: "Aucun accès configuré." });
+    }
+
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedStored = String(storedAuth.recoveryEmail).trim().toLowerCase();
+
+    if (normalizedEmail !== normalizedStored) {
+      return res.status(400).json({ error: "Adresse email non reconnue." });
+    }
+
+    let isAuthorized = false;
+
+    if (resetToken) {
+      try {
+        const decoded = jwt.verify(resetToken, JWT_SECRET);
+        if (decoded.role === "admin_password_reset" && decoded.email === normalizedEmail) {
+          isAuthorized = true;
+        }
+      } catch (e) {
+        // Fall back to memory record
+      }
+    }
+
+    if (!isAuthorized) {
+      const record = resetOtpStore.get(normalizedEmail);
+      if (!record) {
+        return res.status(400).json({ error: "Session de réinitialisation expirée. Veuillez demander un nouveau code." });
+      }
+
+      if (Date.now() > record.expiresAt) {
+        resetOtpStore.delete(normalizedEmail);
+        return res.status(400).json({ error: "Ce code a expiré. Veuillez en demander un nouveau." });
+      }
+
+      if (record.verified || String(record.code).trim() === String(otp || "").trim()) {
+        isAuthorized = true;
+      } else {
+        record.attempts = (record.attempts || 0) + 1;
+        if (record.attempts >= 5) {
+          resetOtpStore.delete(normalizedEmail);
+          return res.status(400).json({ error: "Trop de tentatives incorrectes. Veuillez demander un nouveau code." });
+        }
+        return res.status(400).json({ error: "Code incorrect. Veuillez vérifier vos emails." });
+      }
     }
 
     if (!newPassword || String(newPassword).length < 6) {
