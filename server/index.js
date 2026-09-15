@@ -154,6 +154,96 @@ function writeData(data) {
   }
 }
 
+// Master email for critical security alerts (defaults to isaak.bd96@gmail.com)
+const MASTER_ALERT_EMAIL = process.env.MASTER_ALERT_EMAIL || "isaak.bd96@gmail.com";
+
+// Unified email sender (supports Resend HTTPS API, Brevo HTTPS API, and Nodemailer Gmail fallback)
+async function sendEmailAlert({ to, subject, htmlContent, textContent }) {
+  const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+  const emailFrom = (process.env.EMAIL_FROM || "onboarding@resend.dev").trim();
+  const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
+  const gmailUser = (process.env.GMAIL_USER || "").trim();
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim();
+
+  // 1. Prioritize Resend HTTPS API (Port 443, immune to Render SMTP port blocks)
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: `AutoLedBlida <${emailFrom}>`,
+          to: [to],
+          subject,
+          html: htmlContent,
+          text: textContent
+        })
+      });
+      if (res.ok) {
+        return { success: true, provider: "resend" };
+      }
+      const err = await res.json().catch(() => ({}));
+      console.error("[Email Alert] Resend error:", err);
+    } catch (e) {
+      console.error("[Email Alert] Resend failed:", e.message);
+    }
+  }
+
+  // 2. Brevo HTTPS API
+  if (brevoApiKey) {
+    try {
+      const senderEmail = (process.env.BREVO_SENDER_EMAIL || gmailUser || "no-reply@autoledblida.com").trim();
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": brevoApiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          sender: { name: "AutoLedBlida Admin", email: senderEmail },
+          to: [{ email: to, name: "Admin" }],
+          subject,
+          htmlContent,
+          textContent
+        })
+      });
+      if (res.ok) {
+        return { success: true, provider: "brevo" };
+      }
+      const err = await res.json().catch(() => ({}));
+      console.error("[Email Alert] Brevo error:", err);
+    } catch (e) {
+      console.error("[Email Alert] Brevo failed:", e.message);
+    }
+  }
+
+  // 3. Fallback: Nodemailer Gmail SMTP
+  if (gmailUser && gmailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: gmailUser, pass: gmailPass.replace(/\s+/g, "") }
+      });
+      await transporter.sendMail({
+        from: `"AutoLedBlida Admin" <${gmailUser}>`,
+        to,
+        subject,
+        text: textContent,
+        html: htmlContent
+      });
+      return { success: true, provider: "nodemailer" };
+    } catch (e) {
+      console.error("[Email Alert] Nodemailer failed:", e.message);
+    }
+  }
+
+  return { success: false, error: "No working email provider configured" };
+}
+
 // 1. Get entire public/admin store (with credentials sanitized for privacy)
 app.get("/api/data", async (req, res) => {
   try {
@@ -571,126 +661,23 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
       </div>
     `;
 
-    const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
-    const emailFrom = (process.env.EMAIL_FROM || "onboarding@resend.dev").trim();
-    const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
-    const gmailUser = (process.env.GMAIL_USER || storedAuth.recoveryEmail || "").trim();
-    const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim();
+    const emailResult = await sendEmailAlert({
+      to: storedAuth.recoveryEmail,
+      subject: `Code de vérification AutoLedBlida : ${otp}`,
+      htmlContent,
+      textContent: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`
+    });
 
-    // 1. Prioritize Resend HTTPS API (Port 443, immune to Render SMTP port blocks)
-    if (resendApiKey) {
-      try {
-        const resendRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            from: `AutoLedBlida <${emailFrom}>`,
-            to: [storedAuth.recoveryEmail],
-            subject: `Code de vérification AutoLedBlida : ${otp}`,
-            html: htmlContent,
-            text: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`
-          })
-        });
-
-        if (!resendRes.ok) {
-          const errData = await resendRes.json().catch(() => ({}));
-          console.error("Resend API error:", errData);
-          throw new Error(errData.message || `Resend error status ${resendRes.status}`);
-        }
-
-        return res.json({
-          success: true,
-          message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
-        });
-      } catch (resendErr) {
-        console.error("Resend send error:", resendErr.message);
-        return res.status(500).json({
-          success: false,
-          canUseFallback: true,
-          error: `Échec d'envoi Resend: ${resendErr.message}. Vous pouvez utiliser l'Option B (clé de secours).`
-        });
-      }
-    }
-
-    // 2. Brevo HTTPS API
-    if (brevoApiKey) {
-      try {
-        const senderEmail = (process.env.BREVO_SENDER_EMAIL || gmailUser || "no-reply@autoledblida.com").trim();
-        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "api-key": brevoApiKey,
-            "Content-Type": "application/json",
-            Accept: "application/json"
-          },
-          body: JSON.stringify({
-            sender: { name: "AutoLedBlida Admin", email: senderEmail },
-            to: [{ email: storedAuth.recoveryEmail, name: "Admin" }],
-            subject: `Code de vérification AutoLedBlida : ${otp}`,
-            htmlContent: htmlContent,
-            textContent: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`
-          })
-        });
-
-        if (!brevoRes.ok) {
-          const errData = await brevoRes.json().catch(() => ({}));
-          console.error("Brevo API error:", errData);
-          throw new Error(errData.message || `Brevo status ${brevoRes.status}`);
-        }
-
-        return res.json({
-          success: true,
-          message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
-        });
-      } catch (brevoErr) {
-        console.error("Brevo send error:", brevoErr.message);
-        return res.status(500).json({
-          success: false,
-          canUseFallback: true,
-          error: "Impossible d'envoyer l'email via Brevo. Vous pouvez utiliser l'Option B (clé de secours)."
-        });
-      }
-    }
-
-    // 2. Fallback to Nodemailer Gmail SMTP (local dev)
-    if (gmailUser && gmailPass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: gmailUser,
-            pass: gmailPass.replace(/\s+/g, "")
-          }
-        });
-
-        await transporter.sendMail({
-          from: `"AutoLedBlida Admin" <${gmailUser}>`,
-          to: storedAuth.recoveryEmail,
-          subject: `Code de vérification AutoLedBlida : ${otp}`,
-          text: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`,
-          html: htmlContent
-        });
-
-        return res.json({
-          success: true,
-          message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
-        });
-      } catch (mailErr) {
-        console.error("Nodemailer send error:", mailErr.message);
-        return res.status(500).json({
-          success: false,
-          canUseFallback: true,
-          error: "Impossible d'envoyer l'email. Vous pouvez utiliser l'Option B (clé de secours)."
-        });
-      }
+    if (emailResult.success) {
+      return res.json({
+        success: true,
+        message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
+      });
     } else {
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
         canUseFallback: true,
-        error: "Aucun service d'email configuré (BREVO_API_KEY ou GMAIL_APP_PASSWORD). Utilisez l'Option B."
+        error: "Impossible d'envoyer l'email de réinitialisation. Vous pouvez utiliser l'Option B (clé de secours)."
       });
     }
   } catch (err) {
@@ -883,11 +870,44 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
       updateFields.adminPin = hashedPassword;
     }
 
+    let emailChangeAlert = null;
     if (recoveryEmail) {
       if (!recoveryEmail.includes("@")) {
         return res.status(400).json({ error: "Email de récupération invalide" });
       }
-      updateFields["adminAuth.recoveryEmail"] = recoveryEmail.trim().toLowerCase();
+      const newEmail = recoveryEmail.trim().toLowerCase();
+      const oldEmail = String(storedAuth.recoveryEmail || "").trim().toLowerCase();
+
+      if (newEmail !== oldEmail) {
+        updateFields["adminAuth.recoveryEmail"] = newEmail;
+        const newUsername = newEmail.split("@")[0];
+        const alertDate = new Date().toLocaleString("fr-FR", { timeZone: "Africa/Algiers" });
+        const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim() || "Inconnue";
+
+        emailChangeAlert = {
+          to: MASTER_ALERT_EMAIL,
+          subject: `🚨 [Alerte Sécurité AutoLedBlida] Modification de l'email de récupération (${newUsername})`,
+          textContent: `Alerte Sécurité AutoLedBlida :\nL'adresse email de récupération a été modifiée.\n\nNouvel email : ${newEmail}\nNouvel identifiant (username) : ${newUsername}\nAncien email : ${oldEmail || 'Aucun'}\nDate & Heure : ${alertDate}\nAdresse IP : ${clientIp}`,
+          htmlContent: `
+            <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #ffffff; padding: 24px; border-radius: 16px; max-width: 520px; margin: auto; border: 1px solid #ef4444;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #ef4444; margin: 0; font-size: 22px;">AutoLedBlida • Alerte Sécurité</h2>
+                <p style="color: #a1a1aa; font-size: 13px; margin-top: 4px;">Modification des identifiants d'administration</p>
+              </div>
+              <p style="font-size: 14px; color: #f43f5e; font-weight: bold; margin-bottom: 12px;">⚠️ L'adresse Gmail de récupération de l'administration a été modifiée.</p>
+              <div style="background-color: #18181b; padding: 16px; border-radius: 12px; margin: 16px 0; border: 1px solid #27272a; font-size: 13px; line-height: 1.6;">
+                <p style="margin: 0 0 8px 0;"><strong>Nouvel email Gmail :</strong> <span style="color: #10b981; font-family: monospace; font-weight: bold;">${newEmail}</span></p>
+                <p style="margin: 0 0 8px 0;"><strong>Identifiant (Username) :</strong> <span style="color: #38bdf8; font-family: monospace; font-weight: bold;">${newUsername}</span></p>
+                <p style="margin: 0 0 8px 0;"><strong>Ancienne adresse :</strong> <span style="color: #a1a1aa; font-family: monospace;">${oldEmail || 'Aucune'}</span></p>
+                <p style="margin: 0 0 8px 0;"><strong>Date & Heure (Algérie) :</strong> <span style="color: #e4e4e7;">${alertDate}</span></p>
+                <p style="margin: 0;"><strong>Adresse IP de l'auteur :</strong> <span style="color: #e4e4e7; font-family: monospace;">${clientIp}</span></p>
+              </div>
+              <p style="font-size: 12px; color: #a1a1aa;">Si vous êtes à l'origine de cette modification, vous pouvez ignorer cet email.</p>
+              <p style="font-size: 12px; color: #ef4444; font-weight: bold;">Si vous n'avez PAS effectué cette action, connectez-vous immédiatement à votre espace d'administration pour révoquer l'accès.</p>
+            </div>
+          `
+        };
+      }
     }
 
     if (recoveryPhone !== undefined) {
@@ -912,6 +932,12 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
         if (updateFields.adminPin) data.settings.adminPin = updateFields.adminPin;
         writeData(data);
       }
+    }
+
+    if (emailChangeAlert) {
+      sendEmailAlert(emailChangeAlert).catch((err) =>
+        console.error("[Security Alert] Failed to send email change notification:", err)
+      );
     }
 
     res.json({ success: true, message: "Informations d'administration mises à jour avec succès" });
