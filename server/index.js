@@ -571,11 +571,51 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
       </div>
     `;
 
+    const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+    const emailFrom = (process.env.EMAIL_FROM || "onboarding@resend.dev").trim();
     const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
     const gmailUser = (process.env.GMAIL_USER || storedAuth.recoveryEmail || "").trim();
     const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim();
 
-    // 1. Prioritize Brevo HTTPS API (Port 443, immune to Render SMTP port blocks)
+    // 1. Prioritize Resend HTTPS API (Port 443, immune to Render SMTP port blocks)
+    if (resendApiKey) {
+      try {
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            from: `AutoLedBlida <${emailFrom}>`,
+            to: [storedAuth.recoveryEmail],
+            subject: `Code de vérification AutoLedBlida : ${otp}`,
+            html: htmlContent,
+            text: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`
+          })
+        });
+
+        if (!resendRes.ok) {
+          const errData = await resendRes.json().catch(() => ({}));
+          console.error("Resend API error:", errData);
+          throw new Error(errData.message || `Resend error status ${resendRes.status}`);
+        }
+
+        return res.json({
+          success: true,
+          message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
+        });
+      } catch (resendErr) {
+        console.error("Resend send error:", resendErr.message);
+        return res.status(500).json({
+          success: false,
+          canUseFallback: true,
+          error: `Échec d'envoi Resend: ${resendErr.message}. Vous pouvez utiliser l'Option B (clé de secours).`
+        });
+      }
+    }
+
+    // 2. Brevo HTTPS API
     if (brevoApiKey) {
       try {
         const senderEmail = (process.env.BREVO_SENDER_EMAIL || gmailUser || "no-reply@autoledblida.com").trim();
