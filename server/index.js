@@ -554,9 +554,68 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
       attempts: 0
     });
 
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #ffffff; padding: 24px; border-radius: 16px; max-width: 500px; margin: auto; border: 1px solid #27272a;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #ef4444; margin: 0; font-size: 22px;">AutoLedBlida</h2>
+          <p style="color: #a1a1aa; font-size: 13px; margin-top: 4px;">Récupération de mot de passe administrateur</p>
+        </div>
+        <p style="font-size: 14px; color: #e4e4e7;">Bonjour,</p>
+        <p style="font-size: 14px; color: #d4d4d8;">Vous avez demandé la réinitialisation de votre mot de passe pour l'espace d'administration. Voici votre code de confirmation :</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #ef4444; background: #18181b; padding: 12px 24px; border-radius: 12px; border: 1px solid #ef4444;">${otp}</span>
+        </div>
+        <p style="font-size: 12px; color: #a1a1aa; text-align: center;">Ce code est valable pendant <strong>15 minutes</strong>. Ne le partagez avec personne.</p>
+        <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
+        <p style="font-size: 11px; color: #71717a; text-align: center;">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+      </div>
+    `;
+
+    const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
     const gmailUser = (process.env.GMAIL_USER || storedAuth.recoveryEmail || "").trim();
     const gmailPass = (process.env.GMAIL_APP_PASSWORD || "").trim();
 
+    // 1. Prioritize Brevo HTTPS API (Port 443, immune to Render SMTP port blocks)
+    if (brevoApiKey) {
+      try {
+        const senderEmail = (process.env.BREVO_SENDER_EMAIL || gmailUser || "no-reply@autoledblida.com").trim();
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "api-key": brevoApiKey,
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            sender: { name: "AutoLedBlida Admin", email: senderEmail },
+            to: [{ email: storedAuth.recoveryEmail, name: "Admin" }],
+            subject: `Code de vérification AutoLedBlida : ${otp}`,
+            htmlContent: htmlContent,
+            textContent: `Votre code de réinitialisation AutoLedBlida est : ${otp} (valable 15 minutes).`
+          })
+        });
+
+        if (!brevoRes.ok) {
+          const errData = await brevoRes.json().catch(() => ({}));
+          console.error("Brevo API error:", errData);
+          throw new Error(errData.message || `Brevo status ${brevoRes.status}`);
+        }
+
+        return res.json({
+          success: true,
+          message: "Code envoyé avec succès par email ! Vérifiez votre boîte de réception."
+        });
+      } catch (brevoErr) {
+        console.error("Brevo send error:", brevoErr.message);
+        return res.status(500).json({
+          success: false,
+          canUseFallback: true,
+          error: "Impossible d'envoyer l'email via Brevo. Vous pouvez utiliser l'Option B (clé de secours)."
+        });
+      }
+    }
+
+    // 2. Fallback to Nodemailer Gmail SMTP (local dev)
     if (gmailUser && gmailPass) {
       try {
         const transporter = nodemailer.createTransport({
@@ -566,23 +625,6 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
             pass: gmailPass.replace(/\s+/g, "")
           }
         });
-
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #ffffff; padding: 24px; border-radius: 16px; max-width: 500px; margin: auto; border: 1px solid #27272a;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #ef4444; margin: 0; font-size: 22px;">AutoLedBlida</h2>
-              <p style="color: #a1a1aa; font-size: 13px; margin-top: 4px;">Récupération de mot de passe administrateur</p>
-            </div>
-            <p style="font-size: 14px; color: #e4e4e7;">Bonjour,</p>
-            <p style="font-size: 14px; color: #d4d4d8;">Vous avez demandé la réinitialisation de votre mot de passe pour l'espace d'administration. Voici votre code de confirmation :</p>
-            <div style="text-align: center; margin: 24px 0;">
-              <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #ef4444; background: #18181b; padding: 12px 24px; border-radius: 12px; border: 1px solid #ef4444;">${otp}</span>
-            </div>
-            <p style="font-size: 12px; color: #a1a1aa; text-align: center;">Ce code est valable pendant <strong>15 minutes</strong>. Ne le partagez avec personne.</p>
-            <hr style="border: 0; border-top: 1px solid #27272a; margin: 20px 0;" />
-            <p style="font-size: 11px; color: #71717a; text-align: center;">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
-          </div>
-        `;
 
         await transporter.sendMail({
           from: `"AutoLedBlida Admin" <${gmailUser}>`,
@@ -608,7 +650,7 @@ app.post("/api/admin/send-reset-otp", async (req, res) => {
       return res.status(400).json({
         success: false,
         canUseFallback: true,
-        error: "GMAIL_APP_PASSWORD non configuré dans les variables d'environnement. Utilisez l'Option B."
+        error: "Aucun service d'email configuré (BREVO_API_KEY ou GMAIL_APP_PASSWORD). Utilisez l'Option B."
       });
     }
   } catch (err) {
