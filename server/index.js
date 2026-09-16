@@ -861,14 +861,28 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
       recoveryEmail &&
       recoveryEmail.trim().toLowerCase() === String(storedAuth.recoveryEmail).trim().toLowerCase();
 
-    const cleanInputPass = String(recoveryEmailPassword || "").replace(/\s+/g, "");
-    const cleanStoredPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
-    const emailPasswordMatch = cleanStoredPass && cleanInputPass === cleanStoredPass;
+    const cleanInputPass = String(recoveryEmailPassword || "").trim();
+    const storedRecoveryPass = storedAuth.recoveryEmailPassword;
+    const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+
+    let emailPasswordMatch = false;
+    if (storedRecoveryPass) {
+      if (isBcryptHash(storedRecoveryPass)) {
+        emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
+      } else {
+        emailPasswordMatch =
+          cleanInputPass === storedRecoveryPass ||
+          cleanInputPass.replace(/\s+/g, "") === String(storedRecoveryPass).replace(/\s+/g, "");
+      }
+    }
+    if (!emailPasswordMatch && cleanStoredEnvPass) {
+      emailPasswordMatch = cleanInputPass.replace(/\s+/g, "") === cleanStoredEnvPass;
+    }
 
     if (!emailMatch || !emailPasswordMatch) {
       console.warn(`[SECURITY ALERT] Échec tentative de récupération de secours depuis IP: ${req.ip}`);
       return res.status(401).json({
-        error: "Adresse Gmail ou mot de passe d'application / clé de secours incorrect."
+        error: "Adresse Gmail ou mot de passe de récupération incorrect."
       });
     }
 
@@ -992,6 +1006,11 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
       updateFields["adminAuth.recoveryPhone"] = String(recoveryPhone).trim();
     }
 
+    if (recoveryEmailPassword && String(recoveryEmailPassword).trim()) {
+      const hashedRecoveryPass = await bcrypt.hash(String(recoveryEmailPassword).trim(), 10);
+      updateFields["adminAuth.recoveryEmailPassword"] = hashedRecoveryPass;
+    }
+
     if (isMongo()) {
       await Settings.findOneAndUpdate(
         { _id: "site_settings" },
@@ -1005,6 +1024,7 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
           ...data.settings.adminAuth,
           ...(updateFields["adminAuth.password"] ? { password: updateFields["adminAuth.password"] } : {}),
           ...(updateFields["adminAuth.recoveryEmail"] ? { recoveryEmail: updateFields["adminAuth.recoveryEmail"] } : {}),
+          ...(updateFields["adminAuth.recoveryEmailPassword"] ? { recoveryEmailPassword: updateFields["adminAuth.recoveryEmailPassword"] } : {}),
           ...(updateFields["adminAuth.recoveryPhone"] ? { recoveryPhone: updateFields["adminAuth.recoveryPhone"] } : {})
         };
         if (updateFields.adminPin) data.settings.adminPin = updateFields.adminPin;

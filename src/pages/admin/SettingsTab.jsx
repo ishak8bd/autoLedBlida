@@ -396,8 +396,35 @@ export function SettingsTab() {
             />
             <p className="text-[10px] text-zinc-500 mt-1">
               {isRtl
-                ? "يتم إرسال رمز التحقق OTP إلى هذا البريد في حال نسيان كلمة المرور."
-                : "Le code de vérification OTP vous sera envoyé à cette adresse en cas d'oubli."}
+                ? "يتم إرسال رمز التحقق OTP إلى هذا البريد في حال نسيان كلمة المرور (الخيار أ)."
+                : "Le code de vérification OTP vous sera envoyé à cette adresse en cas d'oubli (Option A)."}
+            </p>
+          </div>
+
+          <div className="max-w-md">
+            <label className="text-zinc-400 block mb-1">
+              {isRtl ? "كلمة سر بريد الاسترجاع (الخيار ب للاسترجاع الفوري)" : "Mot de passe de l'email de récupération"}
+            </label>
+            <div className="relative">
+              <input
+                type={showEmailPass ? "text" : "password"}
+                value={authForm.recoveryEmailPassword}
+                onChange={(e) => setAuthForm({ ...authForm, recoveryEmailPassword: e.target.value })}
+                placeholder={isRtl ? "اترك فارغاً للاحتفاظ بكلمة السر الحالية" : "Laisser vide pour conserver"}
+                className="w-full px-3 py-2 pr-10 rtl:pr-3 rtl:pl-10 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
+              />
+              <button
+                type="button"
+                onClick={() => setShowEmailPass(!showEmailPass)}
+                className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white cursor-pointer"
+              >
+                {showEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <p className="text-[10px] text-amber-400/90 mt-1">
+              {isRtl
+                ? "يُستخدم هذا الرمز كخيار احتياطي فوري (الخيار ب) في حال فشل أو تأخر وصول رمز الإيميل (الخيار أ)."
+                : "Ce mot de passe servira de secours direct (Option B) si l'envoi du code par email (Option A) échoue ou tarde."}
             </p>
           </div>
         </div>
