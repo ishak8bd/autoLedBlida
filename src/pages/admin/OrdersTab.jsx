@@ -1171,10 +1171,10 @@ export function OrdersTab() {
                     />
                   </div>
 
-                  {/* Unit Price */}
+                  {/* Subtotal / Product Price */}
                   <div>
-                    <label className="block text-zinc-300 font-bold mb-1 text-[11px] sm:text-xs truncate">
-                      {isRtl ? "سعر الوحدة (د.ج)" : "P.U (DZD)"}
+                    <label className="block text-zinc-300 font-bold mb-1 text-[11px] sm:text-xs truncate" title={isRtl ? "المجموع الفرعي (د.ج)" : "Prix sous-total (DZD)"}>
+                      {isRtl ? "المجموع الفرعي (د.ج)" : "Prix sous-total (DZD)"}
                     </label>
                     <input
                       type="number"
