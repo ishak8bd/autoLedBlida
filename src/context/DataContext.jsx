@@ -392,7 +392,7 @@ export function DataProvider({ children }) {
             ...prev.settings?.adminAuth,
             ...(newPassword ? { password: newPassword } : {}),
             ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
-            ...(recoveryEmailPassword ? { recoveryEmailPassword } : {}),
+            ...(recoveryEmailPassword ? { recoveryEmailPassword, hasRecoveryEmailPassword: true } : {}),
             ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
           };
           return {
@@ -413,7 +413,7 @@ export function DataProvider({ children }) {
           ...prev.settings?.adminAuth,
           ...(newPassword ? { password: newPassword } : {}),
           ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
-          ...(recoveryEmailPassword ? { recoveryEmailPassword } : {}),
+          ...(recoveryEmailPassword ? { recoveryEmailPassword, hasRecoveryEmailPassword: true } : {}),
           ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
         };
         const updated = {

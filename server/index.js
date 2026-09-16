@@ -269,7 +269,8 @@ app.get("/api/data", async (req, res) => {
           adminAuth: {
             isConfigured: Boolean(s.adminAuth?.password),
             recoveryEmail: s.adminAuth?.recoveryEmail || "",
-            hasRecoveryPhone: Boolean(s.adminAuth?.recoveryPhone)
+            hasRecoveryPhone: Boolean(s.adminAuth?.recoveryPhone),
+            hasRecoveryEmailPassword: Boolean(s.adminAuth?.recoveryEmailPassword)
           }
         }
       };
@@ -288,7 +289,8 @@ app.get("/api/data", async (req, res) => {
         adminAuth: {
           isConfigured: Boolean(data.settings?.adminAuth?.password),
           recoveryEmail: data.settings?.adminAuth?.recoveryEmail || "",
-          hasRecoveryPhone: Boolean(data.settings?.adminAuth?.recoveryPhone)
+          hasRecoveryPhone: Boolean(data.settings?.adminAuth?.recoveryPhone),
+          hasRecoveryEmailPassword: Boolean(data.settings?.adminAuth?.recoveryEmailPassword)
         }
       }
     };
@@ -484,7 +486,8 @@ app.get("/api/admin/auth-status", async (req, res) => {
     const isConfigured = Boolean(adminAuth?.password);
     res.json({
       isConfigured,
-      hasRecoveryPhone: Boolean(adminAuth?.recoveryPhone)
+      hasRecoveryPhone: Boolean(adminAuth?.recoveryPhone),
+      hasRecoveryEmailPassword: Boolean(adminAuth?.recoveryEmailPassword)
     });
   } catch (err) {
     console.error("Auth status error:", err);

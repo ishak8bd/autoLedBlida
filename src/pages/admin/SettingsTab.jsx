@@ -8,6 +8,7 @@ import {
   Phone,
   ShieldCheck,
   AlertCircle,
+  CheckCircle2,
   Eye,
   EyeOff,
   HelpCircle,
@@ -402,15 +403,28 @@ export function SettingsTab() {
           </div>
 
           <div className="max-w-md">
-            <label className="text-zinc-400 block mb-1">
-              {isRtl ? "كلمة سر بريد الاسترجاع (الخيار ب للاسترجاع الفوري)" : "Mot de passe de l'email de récupération"}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-zinc-400 block text-xs">
+                {isRtl ? "كلمة سر بريد الاسترجاع (الخيار ب للاسترجاع الفوري)" : "Mot de passe de l'email de récupération"}
+              </label>
+              {data?.settings?.adminAuth?.hasRecoveryEmailPassword ? (
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>{isRtl ? "مُعيّن ونشط" : "Actif dans la base"}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>{isRtl ? "غير مُعيّن بعد" : "Non défini"}</span>
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
                 type={showEmailPass ? "text" : "password"}
                 value={authForm.recoveryEmailPassword}
                 onChange={(e) => setAuthForm({ ...authForm, recoveryEmailPassword: e.target.value })}
-                placeholder={isRtl ? "اترك فارغاً للاحتفاظ بكلمة السر الحالية" : "Laisser vide pour conserver"}
+                placeholder={isRtl ? "أدخل كلمة سر جديدة لتغييرها في أي وقت (أو اترك فارغاً للحفظ)" : "Saisissez un nouveau mot de passe pour changer (ou vide pour conserver)"}
                 className="w-full px-3 py-2 pr-10 rtl:pr-3 rtl:pl-10 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
               />
               <button
@@ -421,10 +435,10 @@ export function SettingsTab() {
                 {showEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="text-[10px] text-amber-400/90 mt-1">
+            <p className="text-[10px] text-zinc-400 mt-1">
               {isRtl
-                ? "يُستخدم هذا الرمز كخيار احتياطي فوري (الخيار ب) في حال فشل أو تأخر وصول رمز الإيميل (الخيار أ)."
-                : "Ce mot de passe servira de secours direct (Option B) si l'envoi du code par email (Option A) échoue ou tarde."}
+                ? "يمكنك تغيير كلمة سر بريد الاسترجاع في أي وقت هنا. ستُستخدم فوراً في الخيار (ب) للطوارئ."
+                : "Vous pouvez modifier ce mot de passe de secours à tout moment ici. Il sera utilisable immédiatement dans l'Option B."}
             </p>
           </div>
         </div>
