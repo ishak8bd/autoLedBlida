@@ -504,14 +504,30 @@ export function DataProvider({ children }) {
       if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
-        setData((prev) => ({
-          ...prev,
-          settings: {
-            ...prev.settings,
-            phoneNumbers: json.phoneNumbers,
-            whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
-          }
-        }));
+        const cleanPhones = Array.isArray(json.phoneNumbers)
+          ? json.phoneNumbers.map((p) => ({
+              id: p.id,
+              number: String(p.number || "").trim(),
+              labelFr: p.labelFr || "",
+              labelAr: p.labelAr || "",
+              isPrimary: Boolean(p.isPrimary),
+              whatsapp: Boolean(p.whatsapp)
+            }))
+          : [];
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              phoneNumbers: cleanPhones,
+              whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
+            }
+          };
+          try {
+            localStorage.setItem("autoled_cache", JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
         return { success: true };
       }
     } catch (e) {
@@ -562,14 +578,30 @@ export function DataProvider({ children }) {
       if (res.status === 401) saveAdminToken("");
       if (res.ok) {
         const json = await res.json();
-        setData((prev) => ({
-          ...prev,
-          settings: {
-            ...prev.settings,
-            phoneNumbers: json.phoneNumbers,
-            whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
-          }
-        }));
+        const cleanPhones = Array.isArray(json.phoneNumbers)
+          ? json.phoneNumbers.map((p) => ({
+              id: p.id,
+              number: String(p.number || "").trim(),
+              labelFr: p.labelFr || "",
+              labelAr: p.labelAr || "",
+              isPrimary: Boolean(p.isPrimary),
+              whatsapp: Boolean(p.whatsapp)
+            }))
+          : [];
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              phoneNumbers: cleanPhones,
+              whatsappMain: json.whatsappMain || prev.settings?.whatsappMain
+            }
+          };
+          try {
+            localStorage.setItem("autoled_cache", JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
         return { success: true };
       }
     } catch (e) {

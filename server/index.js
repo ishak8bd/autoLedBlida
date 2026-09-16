@@ -1283,29 +1283,60 @@ app.post("/api/admin/phones", requireAdminAuth, async (req, res) => {
   try {
     if (isMongo()) {
       const s = await Settings.getSingleton();
-      let phones = s.phoneNumbers ? [...s.phoneNumbers] : [];
+      // Ensure all phones are converted from Mongoose subdocuments to clean plain JS objects
+      let phones = (s.phoneNumbers || []).map((p) => {
+        const obj = typeof p.toObject === "function" ? p.toObject() : p;
+        return {
+          id: String(obj.id || ("p-" + Date.now())),
+          number: String(obj.number || "").trim(),
+          labelFr: String(obj.labelFr || ""),
+          labelAr: String(obj.labelAr || ""),
+          isPrimary: Boolean(obj.isPrimary),
+          whatsapp: Boolean(obj.whatsapp)
+        };
+      });
 
       if (id) {
-        phones = phones.map((p) =>
-          p.id === id ? { ...p, number: cleanNum, labelFr, labelAr, isPrimary: Boolean(isPrimary), whatsapp: Boolean(whatsapp) } : p
-        );
+        let found = false;
+        phones = phones.map((p) => {
+          if (p.id === id) {
+            found = true;
+            return {
+              id: p.id,
+              number: cleanNum,
+              labelFr: labelFr !== undefined ? String(labelFr).trim() : p.labelFr,
+              labelAr: labelAr !== undefined ? String(labelAr).trim() : p.labelAr,
+              isPrimary: Boolean(isPrimary),
+              whatsapp: Boolean(whatsapp)
+            };
+          }
+          return p;
+        });
+        if (!found) {
+          phones.push({
+            id: targetId,
+            number: cleanNum,
+            labelFr: String(labelFr || "Numéro").trim(),
+            labelAr: String(labelAr || "رقم اتصال").trim(),
+            isPrimary: Boolean(isPrimary),
+            whatsapp: Boolean(whatsapp)
+          });
+        }
       } else {
         phones.push({
           id: targetId,
           number: cleanNum,
-          labelFr: labelFr || "Numéro",
-          labelAr: labelAr || "رقم اتصال",
+          labelFr: String(labelFr || "Numéro").trim(),
+          labelAr: String(labelAr || "رقم اتصال").trim(),
           isPrimary: Boolean(isPrimary),
           whatsapp: Boolean(whatsapp)
         });
       }
 
       if (isPrimary) {
-        phones = phones.map((p) => ({ ...p, isPrimary: p.id === targetId }));
-        s.whatsappMain = cleanNum;
+        phones = phones.map((p) => ({ ...p, isPrimary: p.id === (id || targetId) }));
       } else if (!phones.some((p) => p.isPrimary) && phones.length > 0) {
         phones[0].isPrimary = true;
-        s.whatsappMain = phones[0].number;
       }
 
       const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
@@ -1319,28 +1350,56 @@ app.post("/api/admin/phones", requireAdminAuth, async (req, res) => {
     const data = readData();
     if (!data) return res.status(500).json({ error: "Database error" });
 
-    let phones = data.settings.phoneNumbers || [];
+    let phones = (data.settings.phoneNumbers || []).map((p) => ({
+      id: String(p.id || ("p-" + Date.now())),
+      number: String(p.number || "").trim(),
+      labelFr: String(p.labelFr || ""),
+      labelAr: String(p.labelAr || ""),
+      isPrimary: Boolean(p.isPrimary),
+      whatsapp: Boolean(p.whatsapp)
+    }));
+
     if (id) {
-      phones = phones.map((p) =>
-        p.id === id ? { ...p, number: cleanNum, labelFr, labelAr, isPrimary: Boolean(isPrimary), whatsapp: Boolean(whatsapp) } : p
-      );
+      let found = false;
+      phones = phones.map((p) => {
+        if (p.id === id) {
+          found = true;
+          return {
+            id: p.id,
+            number: cleanNum,
+            labelFr: labelFr !== undefined ? String(labelFr).trim() : p.labelFr,
+            labelAr: labelAr !== undefined ? String(labelAr).trim() : p.labelAr,
+            isPrimary: Boolean(isPrimary),
+            whatsapp: Boolean(whatsapp)
+          };
+        }
+        return p;
+      });
+      if (!found) {
+        phones.push({
+          id: targetId,
+          number: cleanNum,
+          labelFr: String(labelFr || "Numéro").trim(),
+          labelAr: String(labelAr || "رقم اتصال").trim(),
+          isPrimary: Boolean(isPrimary),
+          whatsapp: Boolean(whatsapp)
+        });
+      }
     } else {
       phones.push({
         id: targetId,
         number: cleanNum,
-        labelFr: labelFr || "Numéro",
-        labelAr: labelAr || "رقم اتصال",
+        labelFr: String(labelFr || "Numéro").trim(),
+        labelAr: String(labelAr || "رقم اتصال").trim(),
         isPrimary: Boolean(isPrimary),
         whatsapp: Boolean(whatsapp)
       });
     }
 
     if (isPrimary) {
-      phones = phones.map((p) => ({ ...p, isPrimary: p.id === targetId }));
-      data.settings.whatsappMain = cleanNum;
+      phones = phones.map((p) => ({ ...p, isPrimary: p.id === (id || targetId) }));
     } else if (!phones.some((p) => p.isPrimary) && phones.length > 0) {
       phones[0].isPrimary = true;
-      data.settings.whatsappMain = phones[0].number;
     }
 
     const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
@@ -1359,12 +1418,26 @@ app.delete("/api/admin/phones/:id", requireAdminAuth, async (req, res) => {
   try {
     if (isMongo()) {
       const s = await Settings.getSingleton();
-      let phones = (s.phoneNumbers || []).filter((p) => p.id !== req.params.id);
+      let phones = (s.phoneNumbers || [])
+        .map((p) => {
+          const obj = typeof p.toObject === "function" ? p.toObject() : p;
+          return {
+            id: String(obj.id || ""),
+            number: String(obj.number || "").trim(),
+            labelFr: String(obj.labelFr || ""),
+            labelAr: String(obj.labelAr || ""),
+            isPrimary: Boolean(obj.isPrimary),
+            whatsapp: Boolean(obj.whatsapp)
+          };
+        })
+        .filter((p) => p.id !== req.params.id);
+
       if (phones.length > 0 && !phones.some((p) => p.isPrimary)) {
         phones[0].isPrimary = true;
       }
       const primaryPhone = phones.find((p) => p.isPrimary) || phones[0];
       if (primaryPhone) s.whatsappMain = primaryPhone.number;
+
       s.phoneNumbers = phones;
       await s.save();
       return res.json({ success: true, phoneNumbers: phones, whatsappMain: s.whatsappMain });
@@ -1373,7 +1446,17 @@ app.delete("/api/admin/phones/:id", requireAdminAuth, async (req, res) => {
     const data = readData();
     if (!data) return res.status(500).json({ error: "Database error" });
 
-    let phones = (data.settings.phoneNumbers || []).filter((p) => p.id !== req.params.id);
+    let phones = (data.settings.phoneNumbers || [])
+      .map((p) => ({
+        id: String(p.id || ""),
+        number: String(p.number || "").trim(),
+        labelFr: String(p.labelFr || ""),
+        labelAr: String(p.labelAr || ""),
+        isPrimary: Boolean(p.isPrimary),
+        whatsapp: Boolean(p.whatsapp)
+      }))
+      .filter((p) => p.id !== req.params.id);
+
     if (phones.length > 0 && !phones.some((p) => p.isPrimary)) {
       phones[0].isPrimary = true;
     }
@@ -1382,7 +1465,7 @@ app.delete("/api/admin/phones/:id", requireAdminAuth, async (req, res) => {
 
     data.settings.phoneNumbers = phones;
     writeData(data);
-    res.json({ success: true, phoneNumbers: data.settings.phoneNumbers, whatsappMain: data.settings.whatsappMain });
+    res.json({ success: true, phoneNumbers: phones, whatsappMain: data.settings.whatsappMain });
   } catch (err) {
     console.error("Delete phone error:", err);
     res.status(500).json({ error: "Database error" });
@@ -1777,9 +1860,29 @@ app.post("/api/admin/orders", requireAdminAuth, async (req, res) => {
 app.put("/api/admin/orders/:id", requireAdminAuth, async (req, res) => {
   try {
     if (isMongo()) {
+      const updateData = { ...req.body };
+      delete updateData._id;
+      delete updateData.__v;
+      if (updateData.phone) updateData.phone = cleanAlgerianPhone(updateData.phone);
+      if (updateData.deliveryType) {
+        updateData.deliveryType = updateData.deliveryType === "desk" ? "desk" : "home";
+      }
+      if (updateData.quantity !== undefined) {
+        updateData.quantity = Math.max(1, Number(updateData.quantity) || 1);
+      }
+      if (updateData.productPrice !== undefined) {
+        updateData.productPrice = Math.max(0, Number(updateData.productPrice) || 0);
+      }
+      if (updateData.deliveryFee !== undefined) {
+        updateData.deliveryFee = Math.max(0, Number(updateData.deliveryFee) || 0);
+      }
+      if (updateData.total !== undefined) {
+        updateData.total = Math.max(0, Number(updateData.total) || 0);
+      }
+
       const updated = await Order.findOneAndUpdate(
         { id: req.params.id },
-        { $set: req.body },
+        { $set: updateData },
         { new: true }
       );
       if (!updated) return res.status(404).json({ error: "Commande non trouvée" });

@@ -333,10 +333,12 @@ export function OrdersTab() {
     setSaving(true);
     try {
       const qty = Math.max(1, Number(editingOrder.quantity) || 1);
-      const price = Number(editingOrder.productPrice) || 0;
+      const price = Math.max(0, Number(editingOrder.productPrice) || 0);
+      const fee = Math.max(0, Number(editingOrder.deliveryFee) || 0);
       const sub = price * qty;
-      const fee = Number(editingOrder.deliveryFee) || 0;
-      const finalTotal = editingOrder.total !== undefined ? Number(editingOrder.total) : (sub + fee);
+      const finalTotal = editingOrder.total !== undefined && editingOrder.total !== ""
+        ? Math.max(0, Number(editingOrder.total) || 0)
+        : (sub + fee);
 
       const payload = {
         ...editingOrder,
@@ -344,7 +346,7 @@ export function OrdersTab() {
         phone: cleanAlgerianPhone(editingOrder.phone),
         quantity: qty,
         productPrice: price,
-        deliveryType: editingOrder.deliveryType || "home",
+        deliveryType: editingOrder.deliveryType === "desk" ? "desk" : "home",
         deliveryFee: fee,
         subtotal: sub,
         total: finalTotal
@@ -927,7 +929,7 @@ export function OrdersTab() {
             </div>
 
             {/* Form wrapping scrollable content and pinned footer */}
-            <form onSubmit={handleSaveOrder} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <form onSubmit={handleSaveOrder} noValidate className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Scrollable Form Body */}
               <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 space-y-3.5 text-xs sm:text-sm">
                 {formError && (
@@ -1093,16 +1095,17 @@ export function OrdersTab() {
                     <input
                       type="number"
                       min="0"
-                      step="50"
+                      step="any"
                       value={editingOrder.deliveryFee ?? 0}
                       onChange={(e) => {
-                        const newFee = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        const rawVal = e.target.value;
+                        const newFee = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
                         const qty = Number(editingOrder.quantity) || 1;
                         const price = Number(editingOrder.productPrice) || 0;
                         setEditingOrder({
                           ...editingOrder,
                           deliveryFee: newFee,
-                          total: (price * qty) + newFee
+                          total: (price * qty) + (Number(newFee) || 0)
                         });
                       }}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red text-sm"
@@ -1150,16 +1153,18 @@ export function OrdersTab() {
                     <input
                       type="number"
                       min="1"
+                      step="1"
                       required
-                      value={editingOrder.quantity}
+                      value={editingOrder.quantity ?? 1}
                       onChange={(e) => {
-                        const newQty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                        const rawVal = e.target.value;
+                        const newQty = rawVal === "" ? "" : Math.max(1, parseInt(rawVal, 10) || 1);
                         const price = Number(editingOrder.productPrice) || 0;
                         const fee = Number(editingOrder.deliveryFee) || 0;
                         setEditingOrder({
                           ...editingOrder,
                           quantity: newQty,
-                          total: (price * newQty) + fee
+                          total: (price * (Number(newQty) || 1)) + fee
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
@@ -1174,17 +1179,18 @@ export function OrdersTab() {
                     <input
                       type="number"
                       min="0"
-                      step="100"
+                      step="any"
                       required
-                      value={editingOrder.productPrice}
+                      value={editingOrder.productPrice ?? 0}
                       onChange={(e) => {
-                        const newPrice = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        const rawVal = e.target.value;
+                        const newPrice = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
                         const qty = Number(editingOrder.quantity) || 1;
                         const fee = Number(editingOrder.deliveryFee) || 0;
                         setEditingOrder({
                           ...editingOrder,
                           productPrice: newPrice,
-                          total: (newPrice * qty) + fee
+                          total: ((Number(newPrice) || 0) * qty) + fee
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
@@ -1199,13 +1205,14 @@ export function OrdersTab() {
                     <input
                       type="number"
                       min="0"
-                      step="100"
+                      step="any"
                       required
-                      value={editingOrder.total}
+                      value={editingOrder.total ?? 0}
                       onChange={(e) => {
+                        const rawVal = e.target.value;
                         setEditingOrder({
                           ...editingOrder,
-                          total: Math.max(0, parseInt(e.target.value, 10) || 0)
+                          total: rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0)
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-black focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"

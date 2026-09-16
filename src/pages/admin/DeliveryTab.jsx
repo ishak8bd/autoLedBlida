@@ -428,7 +428,7 @@ export function DeliveryTab() {
                     <input
                       type="number"
                       min="0"
-                      step="50"
+                      step="any"
                       value={fee.desk}
                       onChange={(e) => handlePriceChange(wilaya, "desk", e.target.value)}
                       className="w-full text-center py-1 rounded-lg bg-zinc-900 border border-zinc-700 font-mono font-black text-white text-xs focus:outline-none focus:border-brand-red"
@@ -459,7 +459,7 @@ export function DeliveryTab() {
                     <input
                       type="number"
                       min="0"
-                      step="50"
+                      step="any"
                       value={fee.home}
                       onChange={(e) => handlePriceChange(wilaya, "home", e.target.value)}
                       className="w-full text-center py-1 rounded-lg bg-zinc-900 border border-zinc-700 font-mono font-black text-white text-xs focus:outline-none focus:border-brand-red"
@@ -555,7 +555,7 @@ export function DeliveryTab() {
                         <input
                           type="number"
                           min="0"
-                          step="50"
+                          step="any"
                           value={fee.desk}
                           onChange={(e) => handlePriceChange(wilaya, "desk", e.target.value)}
                           className="w-24 text-center py-1.5 px-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold text-xs focus:outline-none focus:border-brand-red"
@@ -584,7 +584,7 @@ export function DeliveryTab() {
                         <input
                           type="number"
                           min="0"
-                          step="50"
+                          step="any"
                           value={fee.home}
                           onChange={(e) => handlePriceChange(wilaya, "home", e.target.value)}
                           className="w-24 text-center py-1.5 px-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold text-xs focus:outline-none focus:border-brand-red"
@@ -645,7 +645,7 @@ export function DeliveryTab() {
                 </label>
                 <input
                   type="number"
-                  step="50"
+                  step="any"
                   value={bulkDeskPrice}
                   onChange={(e) => setBulkDeskPrice(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
@@ -659,7 +659,7 @@ export function DeliveryTab() {
                 </label>
                 <input
                   type="number"
-                  step="50"
+                  step="any"
                   value={bulkHomePrice}
                   onChange={(e) => setBulkHomePrice(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red"
