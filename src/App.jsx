@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { LanguageProvider } from "./context/LanguageContext";
 import { DataProvider } from "./context/DataContext";
 import { Home } from "./pages/Home";
 import { Admin } from "./pages/Admin";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export function App() {
   const [currentView, setCurrentView] = useState(() => {
@@ -32,15 +33,17 @@ export function App() {
   };
 
   return (
-    <LanguageProvider>
-      <DataProvider>
-        {currentView === "admin" ? (
-          <Admin onBackToSite={handleBackToSite} />
-        ) : (
-          <Home onOpenAdmin={handleOpenAdmin} />
-        )}
-      </DataProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <DataProvider>
+          {currentView === "admin" ? (
+            <Admin onBackToSite={handleBackToSite} />
+          ) : (
+            <Home onOpenAdmin={handleOpenAdmin} />
+          )}
+        </DataProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 

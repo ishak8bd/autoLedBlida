@@ -7,7 +7,8 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Maximize2
+  Maximize2,
+  Loader2
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -21,26 +22,46 @@ export function ProductImageLightboxModal({
   const { isRtl } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [imgLoading, setImgLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
+
+  // Normalize images array to ensure valid non-empty URLs
+  const rawImages = Array.isArray(images) ? images : [images];
+  const safeImages = rawImages
+    .map((img) => (typeof img === "string" ? img.trim() : ""))
+    .filter(Boolean);
+  const displayImages = safeImages.length > 0 ? safeImages : ["/biled-lens.jpg"];
 
   // Sync index when opened or initialIndex changes
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(Math.max(0, Math.min(initialIndex, images.length - 1)));
+      setCurrentIndex(Math.max(0, Math.min(initialIndex, displayImages.length - 1)));
       setZoomLevel(1);
+      setImgLoading(true);
+      setImgError(false);
     }
-  }, [isOpen, initialIndex, images.length]);
+  }, [isOpen, initialIndex, displayImages.length]);
+
+  const safeIndex = Math.max(0, Math.min(currentIndex, displayImages.length - 1));
+  const currentImage = displayImages[safeIndex] || displayImages[0];
+
+  // Reset loading & error whenever active image changes
+  useEffect(() => {
+    setImgLoading(true);
+    setImgError(false);
+  }, [currentImage]);
 
   const nextImage = useCallback(() => {
-    if (images.length <= 1) return;
+    if (displayImages.length <= 1) return;
     setZoomLevel(1);
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  }, [images.length]);
+    setCurrentIndex((prev) => (prev + 1) % displayImages.length);
+  }, [displayImages.length]);
 
   const prevImage = useCallback(() => {
-    if (images.length <= 1) return;
+    if (displayImages.length <= 1) return;
     setZoomLevel(1);
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  }, [images.length]);
+    setCurrentIndex((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+  }, [displayImages.length]);
 
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 0.5, 3));
@@ -88,13 +109,11 @@ export function ProductImageLightboxModal({
     };
   }, [isOpen, onClose, nextImage, prevImage, isRtl]);
 
-  if (!isOpen || !images || images.length === 0) return null;
-
-  const currentImage = images[currentIndex] || images[0];
+  if (!isOpen || typeof document === "undefined") return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-between bg-black/95 backdrop-blur-2xl animate-in fade-in duration-200 select-none"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-between bg-black/95 backdrop-blur-2xl select-none"
       role="dialog"
       aria-modal="true"
       aria-label={title || "Visionneuse d'images"}
@@ -109,9 +128,9 @@ export function ProductImageLightboxModal({
             <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-xs sm:max-w-md md:max-w-xl">
               {title}
             </h3>
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <p className="text-xs text-zinc-400 font-mono">
-                {currentIndex + 1} / {images.length}
+                {safeIndex + 1} / {displayImages.length}
               </p>
             )}
           </div>
@@ -176,7 +195,7 @@ export function ProductImageLightboxModal({
         }}
       >
         {/* Navigation Arrow Left */}
-        {images.length > 1 && (
+        {displayImages.length > 1 && (
           <button
             type="button"
             onClick={(e) => {
@@ -190,7 +209,7 @@ export function ProductImageLightboxModal({
           </button>
         )}
 
-        {/* Active Fullscreen Image */}
+        {/* Active Fullscreen Image Container */}
         <div
           className="relative max-w-full max-h-full flex items-center justify-center transition-transform duration-200"
           style={{
@@ -201,18 +220,32 @@ export function ProductImageLightboxModal({
             e.stopPropagation();
             toggleZoom();
           }}
-          title={zoomLevel > 1 ? "Cliquer pour dézoomer" : "Cliquer pour zoomer"}
+          title={zoomLevel > 1 ? (isRtl ? "انقر للتصغير" : "Cliquer pour dézoomer") : (isRtl ? "انقر للتكبير" : "Cliquer pour zoomer")}
         >
+          {imgLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none text-zinc-400 z-10">
+              <Loader2 className="w-8 h-8 text-brand-red animate-spin" />
+              <span className="text-xs font-mono">{isRtl ? "جاري التحميل..." : "Chargement de l'image..."}</span>
+            </div>
+          )}
+
           <img
-            src={currentImage}
+            src={imgError ? "/biled-lens.jpg" : currentImage}
             alt={title}
-            className="max-w-[95vw] max-h-[78vh] object-contain rounded-xl sm:rounded-2xl shadow-2xl drop-shadow-[0_10px_35px_rgba(0,0,0,0.9)] select-none pointer-events-auto"
+            onLoad={() => setImgLoading(false)}
+            onError={() => {
+              setImgLoading(false);
+              setImgError(true);
+            }}
+            className={`max-w-[95vw] max-h-[78vh] object-contain rounded-xl sm:rounded-2xl shadow-2xl drop-shadow-[0_10px_35px_rgba(0,0,0,0.9)] select-none pointer-events-auto transition-opacity duration-200 ${
+              imgLoading ? "opacity-0" : "opacity-100"
+            }`}
             draggable={false}
           />
         </div>
 
         {/* Navigation Arrow Right */}
-        {images.length > 1 && (
+        {displayImages.length > 1 && (
           <button
             type="button"
             onClick={(e) => {
@@ -229,9 +262,9 @@ export function ProductImageLightboxModal({
 
       {/* Bottom Footer: Thumbnail Strip & Zoom Hint */}
       <footer className="w-full z-50 py-3 px-4 sm:px-8 bg-gradient-to-t from-black/90 via-black/70 to-transparent flex flex-col items-center gap-2">
-        {images.length > 1 ? (
+        {displayImages.length > 1 ? (
           <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 scrollbar-none">
-            {images.map((img, idx) => (
+            {displayImages.map((img, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -240,7 +273,7 @@ export function ProductImageLightboxModal({
                   setCurrentIndex(idx);
                 }}
                 className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                  currentIndex === idx
+                  safeIndex === idx
                     ? "border-brand-red ring-2 ring-brand-red/50 scale-105 opacity-100"
                     : "border-zinc-800 opacity-50 hover:opacity-100 hover:border-zinc-600"
                 }`}
@@ -249,6 +282,9 @@ export function ProductImageLightboxModal({
                   src={img}
                   alt={`Vignette ${idx + 1}`}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "/biled-lens.jpg";
+                  }}
                 />
               </button>
             ))}
@@ -259,6 +295,7 @@ export function ProductImageLightboxModal({
           </div>
         )}
       </footer>
-    </div>
+    </div>,
+    document.body
   );
 }
