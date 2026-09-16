@@ -262,12 +262,21 @@ export function OrdersTab() {
 
   const handleOpenEdit = (order) => {
     const qty = order.quantity || 1;
-    const price = order.productPrice || 0;
-    const sub = order.subtotal !== undefined ? order.subtotal : (price * qty);
     const wilayaFee = getWilayaDeliveryFee ? getWilayaDeliveryFee(order.wilaya) : { home: 500, desk: 300 };
     const curType = order.deliveryType || "home";
     const curFee = order.deliveryFee !== undefined ? order.deliveryFee : (curType === "desk" ? wilayaFee.desk : wilayaFee.home);
-    const tot = order.total !== undefined ? order.total : (sub + curFee);
+    
+    // Le prix sous-total est le prix des articles commandés sans tarif de livraison
+    let sub = 0;
+    if (order.subtotal !== undefined && Number(order.subtotal) > 0) {
+      sub = Number(order.subtotal);
+    } else if (order.total !== undefined && Number(order.total) > curFee) {
+      sub = Number(order.total) - curFee;
+    } else if (order.productPrice !== undefined) {
+      sub = Number(order.productPrice);
+    }
+
+    const tot = order.total !== undefined ? Number(order.total) : (sub + curFee);
 
     setEditingOrder({
       ...order,
@@ -279,9 +288,9 @@ export function OrdersTab() {
       deliveryFee: curFee,
       productId: order.productId || "",
       productName: order.productName || "",
-      productPrice: price,
-      quantity: qty,
+      productPrice: sub,
       subtotal: sub,
+      quantity: qty,
       total: tot,
       vehicleNote: order.vehicleNote || "",
       status: order.status || "nouveau"
@@ -333,9 +342,8 @@ export function OrdersTab() {
     setSaving(true);
     try {
       const qty = Math.max(1, Number(editingOrder.quantity) || 1);
-      const price = Math.max(0, Number(editingOrder.productPrice) || 0);
+      const sub = Math.max(0, Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0);
       const fee = Math.max(0, Number(editingOrder.deliveryFee) || 0);
-      const sub = price * qty;
       const finalTotal = editingOrder.total !== undefined && editingOrder.total !== ""
         ? Math.max(0, Number(editingOrder.total) || 0)
         : (sub + fee);
@@ -345,7 +353,7 @@ export function OrdersTab() {
         customerName: editingOrder.customerName.trim(),
         phone: cleanAlgerianPhone(editingOrder.phone),
         quantity: qty,
-        productPrice: price,
+        productPrice: sub,
         deliveryType: editingOrder.deliveryType === "desk" ? "desk" : "home",
         deliveryFee: fee,
         subtotal: sub,
@@ -985,14 +993,13 @@ export function OrdersTab() {
                         const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(newWilaya) : { home: 500, desk: 300 };
                         const curType = editingOrder.deliveryType || "home";
                         const newFee = curType === "desk" ? (feeObj.desk || 0) : (feeObj.home || 0);
-                        const qty = Number(editingOrder.quantity) || 1;
-                        const price = Number(editingOrder.productPrice) || 0;
+                        const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
                         setEditingOrder({
                           ...editingOrder,
                           wilaya: newWilaya,
                           commune: communes[0] || "",
                           deliveryFee: newFee,
-                          total: (price * qty) + newFee
+                          total: sub + newFee
                         });
                       }}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-sm"
@@ -1043,13 +1050,12 @@ export function OrdersTab() {
                         onClick={() => {
                           const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
                           const newFee = feeObj.home || 0;
-                          const qty = Number(editingOrder.quantity) || 1;
-                          const price = Number(editingOrder.productPrice) || 0;
+                          const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
                           setEditingOrder({
                             ...editingOrder,
                             deliveryType: "home",
                             deliveryFee: newFee,
-                            total: (price * qty) + newFee
+                            total: sub + newFee
                           });
                         }}
                         className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -1067,13 +1073,12 @@ export function OrdersTab() {
                         onClick={() => {
                           const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
                           const newFee = feeObj.desk || 0;
-                          const qty = Number(editingOrder.quantity) || 1;
-                          const price = Number(editingOrder.productPrice) || 0;
+                          const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
                           setEditingOrder({
                             ...editingOrder,
                             deliveryType: "desk",
                             deliveryFee: newFee,
-                            total: (price * qty) + newFee
+                            total: sub + newFee
                           });
                         }}
                         className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -1100,12 +1105,11 @@ export function OrdersTab() {
                       onChange={(e) => {
                         const rawVal = e.target.value;
                         const newFee = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
-                        const qty = Number(editingOrder.quantity) || 1;
-                        const price = Number(editingOrder.productPrice) || 0;
+                        const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
                         setEditingOrder({
                           ...editingOrder,
                           deliveryFee: newFee,
-                          total: (price * qty) + (Number(newFee) || 0)
+                          total: sub + (Number(newFee) || 0)
                         });
                       }}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red text-sm"
@@ -1159,12 +1163,9 @@ export function OrdersTab() {
                       onChange={(e) => {
                         const rawVal = e.target.value;
                         const newQty = rawVal === "" ? "" : Math.max(1, parseInt(rawVal, 10) || 1);
-                        const price = Number(editingOrder.productPrice) || 0;
-                        const fee = Number(editingOrder.deliveryFee) || 0;
                         setEditingOrder({
                           ...editingOrder,
-                          quantity: newQty,
-                          total: (price * (Number(newQty) || 1)) + fee
+                          quantity: newQty
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
@@ -1184,13 +1185,13 @@ export function OrdersTab() {
                       value={editingOrder.productPrice ?? 0}
                       onChange={(e) => {
                         const rawVal = e.target.value;
-                        const newPrice = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
-                        const qty = Number(editingOrder.quantity) || 1;
+                        const newSub = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
                         const fee = Number(editingOrder.deliveryFee) || 0;
                         setEditingOrder({
                           ...editingOrder,
-                          productPrice: newPrice,
-                          total: ((Number(newPrice) || 0) * qty) + fee
+                          productPrice: newSub,
+                          subtotal: newSub,
+                          total: (Number(newSub) || 0) + fee
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
