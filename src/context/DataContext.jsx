@@ -403,6 +403,30 @@ export function DataProvider({ children }) {
     }
   };
 
+  const getUptimeRobotStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/uptimerobot/status`, {
+        headers: getAuthHeaders()
+      });
+      return await res.json();
+    } catch {
+      return { configured: false, error: "Erreur de connexion" };
+    }
+  };
+
+  const toggleUptimeRobot = async (monitorId, active) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/uptimerobot/toggle`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ monitorId, active })
+      });
+      return await res.json();
+    } catch {
+      return { success: false, error: "Erreur de connexion au serveur" };
+    }
+  };
+
   // Backwards compatibility alias for PIN
   const verifyPin = async (pin) => {
     const res = await verifyAdminPassword(pin);
@@ -1084,7 +1108,9 @@ export function DataProvider({ children }) {
         deleteOrder,
         deliveryFees: data?.deliveryFees || {},
         saveDeliveryFees,
-        getWilayaDeliveryFee
+        getWilayaDeliveryFee,
+        getUptimeRobotStatus,
+        toggleUptimeRobot
       }}
     >
       {children}

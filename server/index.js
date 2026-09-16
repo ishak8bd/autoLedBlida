@@ -1025,6 +1025,93 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
   }
 });
 
+// 4b. Admin: UptimeRobot Keep-Alive Management (get status & toggle pause/unpause)
+app.get("/api/admin/uptimerobot/status", requireAdminAuth, async (req, res) => {
+  const apiKey = (process.env.UPTIMEROBOT_API_KEY || "u3780392-819d1304d3913b1e98f8f090").trim();
+  if (!apiKey) {
+    return res.json({ configured: false, error: "Clé API UptimeRobot non configurée." });
+  }
+
+  try {
+    const response = await fetch("https://api.uptimerobot.com/v2/getMonitors", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        api_key: apiKey,
+        format: "json"
+      })
+    });
+
+    const data = await response.json();
+    if (data.stat !== "ok") {
+      return res.status(400).json({ configured: true, error: data.error?.message || "Erreur UptimeRobot API" });
+    }
+
+    const monitors = data.monitors || [];
+    const monitor = monitors[0] || null;
+
+    res.json({
+      configured: true,
+      hasMonitor: Boolean(monitor),
+      monitor: monitor
+        ? {
+            id: monitor.id,
+            name: monitor.friendly_name,
+            url: monitor.url,
+            status: monitor.status, // 0 = Paused, 2 = Up/Active, 1 = Not checked, 9 = Down
+            interval: monitor.interval,
+            isActive: monitor.status === 2 || monitor.status === 1
+          }
+        : null,
+      renderUrl: process.env.RENDER_EXTERNAL_URL || ""
+    });
+  } catch (err) {
+    console.error("UptimeRobot status error:", err);
+    res.status(500).json({ error: "Impossible de joindre UptimeRobot" });
+  }
+});
+
+app.post("/api/admin/uptimerobot/toggle", requireAdminAuth, async (req, res) => {
+  const { monitorId, active } = req.body;
+  const apiKey = (process.env.UPTIMEROBOT_API_KEY || "u3780392-819d1304d3913b1e98f8f090").trim();
+
+  if (!apiKey) {
+    return res.status(400).json({ error: "Clé API non configurée" });
+  }
+  if (!monitorId) {
+    return res.status(400).json({ error: "ID de moniteur requis" });
+  }
+
+  try {
+    const response = await fetch("https://api.uptimerobot.com/v2/editMonitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        api_key: apiKey,
+        format: "json",
+        id: String(monitorId),
+        status: active ? "1" : "0" // 1 = unpause, 0 = pause
+      })
+    });
+
+    const data = await response.json();
+    if (data.stat === "ok") {
+      return res.json({
+        success: true,
+        active: Boolean(active),
+        message: active
+          ? "Surveillance 24/7 activée ! Le serveur ne s'endormira plus."
+          : "Surveillance mise en pause. Le serveur s'endormira après 15 min d'inactivité."
+      });
+    }
+
+    res.status(400).json({ error: data.error?.message || "Échec de modification UptimeRobot" });
+  } catch (err) {
+    console.error("UptimeRobot toggle error:", err);
+    res.status(500).json({ error: "Erreur lors de la communication avec UptimeRobot" });
+  }
+});
+
 // 5. Admin: Update Site Settings (protected)
 app.put("/api/admin/settings", requireAdminAuth, async (req, res) => {
   try {
