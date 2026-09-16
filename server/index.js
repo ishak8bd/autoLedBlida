@@ -499,7 +499,7 @@ app.get("/api/admin/verify-token", requireAdminAuth, (req, res) => {
 
 // 4. Admin: Setup Initial Credentials (rate-limited, hashed with bcrypt)
 app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
-  const { email, phone, password } = req.body;
+  const { email, phone, password, emailPassword, recoveryEmailPassword } = req.body;
 
   if (!email || !email.includes("@")) {
     return res.status(400).json({ error: "Email de récupération valide requis" });
@@ -509,6 +509,11 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(String(password), 10);
+  const rawRecoveryPass = emailPassword || recoveryEmailPassword;
+  let hashedRecoveryPass = undefined;
+  if (rawRecoveryPass && String(rawRecoveryPass).trim()) {
+    hashedRecoveryPass = await bcrypt.hash(String(rawRecoveryPass).trim(), 10);
+  }
 
   try {
     if (isMongo()) {
@@ -519,6 +524,7 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
             "adminAuth.recoveryEmail": email.trim().toLowerCase(),
             "adminAuth.recoveryPhone": (phone || "").trim(),
             "adminAuth.password": hashedPassword,
+            ...(hashedRecoveryPass ? { "adminAuth.recoveryEmailPassword": hashedRecoveryPass } : {}),
             adminPin: hashedPassword
           }
         },
@@ -530,7 +536,8 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
       data.settings.adminAuth = {
         recoveryEmail: email.trim().toLowerCase(),
         recoveryPhone: (phone || "").trim(),
-        password: hashedPassword
+        password: hashedPassword,
+        ...(hashedRecoveryPass ? { recoveryEmailPassword: hashedRecoveryPass } : {})
       };
       data.settings.adminPin = hashedPassword;
       writeData(data);
@@ -922,7 +929,7 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
 
 // 9. Admin: Change Credentials (protected by requireAdminAuth)
 app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => {
-  const { currentPassword, newPassword, recoveryEmail, recoveryPhone } = req.body;
+  const { currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone } = req.body;
   try {
     let storedAuth = null;
     let fallbackPin = "1234";
