@@ -376,66 +376,29 @@ export function SettingsTab() {
           </div>
         </div>
 
-        {/* Recovery Email, Email Password, and Phone */}
-        <div className="space-y-4 pt-1 border-t border-zinc-800/60 text-xs">
+        {/* Recovery Email */}
+        <div className="space-y-3 pt-1 border-t border-zinc-800/60 text-xs">
           <div className="text-zinc-400 font-semibold flex items-center gap-1.5">
             <Mail className="w-4 h-4 text-brand-red" />
             <span>{isRtl ? "معلومات الاسترجاع في حال نسيان كلمة المرور :" : "Coordonnées de récupération en cas d'oubli :"}</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-zinc-400 block mb-1">
-                {isRtl ? "بريد الاسترجاع الإلكتروني" : "Email de récupération"}
-              </label>
-              <input
-                type="email"
-                value={authForm.recoveryEmail}
-                onChange={(e) => setAuthForm({ ...authForm, recoveryEmail: e.target.value })}
-                placeholder="admin@gmail.com"
-                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-xs focus:outline-none focus:border-brand-red"
-              />
-            </div>
-            <div>
-              <label className="text-zinc-400 block mb-1">
-                {isRtl ? "كلمة سر البريد (أو كود التطبيق المكون من 16 حرفاً)" : "Mot de passe d'application email (16 caractères)"}
-              </label>
-              <div className="relative">
-                <input
-                  type={showEmailPass ? "text" : "password"}
-                  value={authForm.recoveryEmailPassword}
-                  onChange={(e) => setAuthForm({ ...authForm, recoveryEmailPassword: e.target.value })}
-                  placeholder={isRtl ? "اترك فارغاً للاحتفاظ بالسابقة" : "Laisser vide pour conserver"}
-                  className="w-full px-3 py-2 pr-10 rtl:pr-3 rtl:pl-10 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowEmailPass(!showEmailPass)}
-                  className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
-                >
-                  {showEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              <p className="text-[10px] text-zinc-400 mt-1">
-                {isRtl
-                  ? "لـ Gmail: استخدم 'كلمة مرور التطبيقات' من إعدادات Google. تُستخدم لإرسال كود OTP عبر Nodemailer وكرمز طوارئ فوري (الخيار ب)."
-                  : "Pour Gmail : utilisez un mot de passe d'application Google (16 lettres). Sert à envoyer l'OTP par email (Option A) et de clé de secours direct (Option B)."}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-zinc-400 block mb-1 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{isRtl ? "رقم الهاتف للاسترجاع (اختياري)" : "Numéro de téléphone de récupération (optionnel)"}</span>
+          <div className="max-w-md">
+            <label className="text-zinc-400 block mb-1">
+              {isRtl ? "بريد الاسترجاع الإلكتروني" : "Email de récupération"}
             </label>
             <input
-              type="tel"
-              value={authForm.recoveryPhone}
-              onChange={(e) => setAuthForm({ ...authForm, recoveryPhone: e.target.value })}
-              placeholder="05... / 06... / 07..."
-              className="w-full max-w-sm px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-xs focus:outline-none focus:border-brand-red"
+              type="email"
+              value={authForm.recoveryEmail}
+              onChange={(e) => setAuthForm({ ...authForm, recoveryEmail: e.target.value })}
+              placeholder="admin@gmail.com"
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-xs focus:outline-none focus:border-brand-red"
             />
+            <p className="text-[10px] text-zinc-500 mt-1">
+              {isRtl
+                ? "يتم إرسال رمز التحقق OTP إلى هذا البريد في حال نسيان كلمة المرور."
+                : "Le code de vérification OTP vous sera envoyé à cette adresse en cas d'oubli."}
+            </p>
           </div>
         </div>
 
