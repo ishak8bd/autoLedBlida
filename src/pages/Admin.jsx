@@ -76,15 +76,15 @@ export function Admin({ onBackToSite }) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Language Switcher: FR for French, ض for Arabic */}
+          {/* Language Switcher: shows ض when French, shows FR when Arabic */}
           <button
             onClick={toggleLang}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-red text-zinc-200 text-xs font-black transition-all"
-            title={lang === "fr" ? "Changer de langue / تغيير اللغة (ض)" : "Changer de langue / تغيير اللغة (FR)"}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-red text-zinc-200 text-xs font-black transition-all cursor-pointer"
+            title={lang === "fr" ? "تغيير اللغة إلى العربية (ض)" : "Changer de langue en Français (FR)"}
             aria-label="Changer de langue"
           >
             <Globe className="w-3.5 h-3.5 text-brand-red" />
-            <span className="font-black text-xs uppercase">{lang === "fr" ? "FR" : "ض"}</span>
+            <span className="font-black text-xs uppercase">{lang === "fr" ? "ض" : "FR"}</span>
           </button>
 
           {/* Logout Button: Symbol only, no text */}
