@@ -889,6 +889,9 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
     if (storedRecoveryPass) {
       if (isBcryptHash(storedRecoveryPass)) {
         emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
+        if (!emailPasswordMatch && cleanInputPass.includes(" ")) {
+          emailPasswordMatch = await bcrypt.compare(cleanInputPass.replace(/\s+/g, ""), storedRecoveryPass);
+        }
       } else {
         emailPasswordMatch =
           cleanInputPass === storedRecoveryPass ||
@@ -977,6 +980,9 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
       if (storedRecoveryPass) {
         if (isBcryptHash(storedRecoveryPass)) {
           emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
+          if (!emailPasswordMatch && cleanInputPass.includes(" ")) {
+            emailPasswordMatch = await bcrypt.compare(cleanInputPass.replace(/\s+/g, ""), storedRecoveryPass);
+          }
         } else {
           emailPasswordMatch =
             cleanInputPass === storedRecoveryPass ||

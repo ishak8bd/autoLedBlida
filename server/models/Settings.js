@@ -29,8 +29,8 @@ const AdminAuthSchema = new mongoose.Schema(
   {
     password: { type: String, default: "" },
     recoveryEmail: { type: String, trim: true, lowercase: true, default: "" },
-    recoveryPhone: { type: String, trim: true, default: "" }
-    // NOTE: recoveryEmailPassword intentionally removed! Handled via GMAIL_APP_PASSWORD env var.
+    recoveryPhone: { type: String, trim: true, default: "" },
+    recoveryEmailPassword: { type: String, default: "" }
   },
   { _id: false }
 );
