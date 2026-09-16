@@ -847,9 +847,9 @@ app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
   }
 });
 
-// 8. Admin Option B: Direct Rescue with Gmail + Email Password (returns JWT)
-app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
-  const { recoveryEmail, recoveryEmailPassword, newPassword } = req.body;
+// 8a. Admin Option B: Verify Direct Rescue Credentials (Step 1)
+app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) => {
+  const { recoveryEmail, recoveryEmailPassword } = req.body;
   try {
     let storedAuth = null;
     if (isMongo()) {
@@ -864,11 +864,24 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
       return res.status(400).json({ error: "Aucun accès configuré. Veuillez d'abord créer vos identifiants." });
     }
 
-    const emailMatch =
-      recoveryEmail &&
-      recoveryEmail.trim().toLowerCase() === String(storedAuth.recoveryEmail).trim().toLowerCase();
+    const normalizedEmail = String(recoveryEmail || "").trim().toLowerCase();
+    const normalizedStored = String(storedAuth.recoveryEmail || "").trim().toLowerCase();
 
+    // 1. Email check: distinguish if Gmail address is wrong
+    if (!normalizedEmail || normalizedEmail !== normalizedStored) {
+      return res.status(400).json({
+        error: "Adresse Gmail incorrecte ou non reconnue."
+      });
+    }
+
+    // 2. Password check: distinguish if email password is wrong
     const cleanInputPass = String(recoveryEmailPassword || "").trim();
+    if (!cleanInputPass) {
+      return res.status(400).json({
+        error: "Mot de passe de l'email incorrect."
+      });
+    }
+
     const storedRecoveryPass = storedAuth.recoveryEmailPassword;
     const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 
@@ -886,11 +899,99 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
       emailPasswordMatch = cleanInputPass.replace(/\s+/g, "") === cleanStoredEnvPass;
     }
 
-    if (!emailMatch || !emailPasswordMatch) {
-      console.warn(`[SECURITY ALERT] Échec tentative de récupération de secours depuis IP: ${req.ip}`);
-      return res.status(401).json({
-        error: "Adresse Gmail ou mot de passe de récupération incorrect."
+    if (!emailPasswordMatch) {
+      console.warn(`[SECURITY ALERT] Échec mot de passe de secours depuis IP: ${req.ip}`);
+      return res.status(400).json({
+        error: "Mot de passe de l'email incorrect."
       });
+    }
+
+    const fallbackToken = jwt.sign(
+      { role: "admin_fallback_reset", email: normalizedEmail },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Identifiants de secours validés !",
+      fallbackToken
+    });
+  } catch (err) {
+    console.error("Check fallback credentials error:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// 8b. Admin Option B: Reset Password with Verified Fallback Token or Credentials (Step 2)
+app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
+  const { fallbackToken, recoveryEmail, recoveryEmailPassword, newPassword } = req.body;
+  try {
+    let storedAuth = null;
+    if (isMongo()) {
+      const s = await Settings.getSingleton();
+      storedAuth = s?.adminAuth;
+    } else {
+      const data = readData();
+      storedAuth = data?.settings?.adminAuth;
+    }
+
+    if (!storedAuth || !storedAuth.password) {
+      return res.status(400).json({ error: "Aucun accès configuré. Veuillez d'abord créer vos identifiants." });
+    }
+
+    let isAuthorized = false;
+
+    if (fallbackToken) {
+      try {
+        const decoded = jwt.verify(fallbackToken, JWT_SECRET);
+        if (decoded.role === "admin_fallback_reset") {
+          isAuthorized = true;
+        }
+      } catch (e) {
+        // Fall back to direct credentials verification
+      }
+    }
+
+    if (!isAuthorized) {
+      const normalizedEmail = String(recoveryEmail || "").trim().toLowerCase();
+      const normalizedStored = String(storedAuth.recoveryEmail || "").trim().toLowerCase();
+
+      if (!normalizedEmail || normalizedEmail !== normalizedStored) {
+        return res.status(400).json({
+          error: "Adresse Gmail incorrecte ou non reconnue."
+        });
+      }
+
+      const cleanInputPass = String(recoveryEmailPassword || "").trim();
+      if (!cleanInputPass) {
+        return res.status(400).json({
+          error: "Mot de passe de l'email incorrect."
+        });
+      }
+
+      const storedRecoveryPass = storedAuth.recoveryEmailPassword;
+      const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+
+      let emailPasswordMatch = false;
+      if (storedRecoveryPass) {
+        if (isBcryptHash(storedRecoveryPass)) {
+          emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
+        } else {
+          emailPasswordMatch =
+            cleanInputPass === storedRecoveryPass ||
+            cleanInputPass.replace(/\s+/g, "") === String(storedRecoveryPass).replace(/\s+/g, "");
+        }
+      }
+      if (!emailPasswordMatch && cleanStoredEnvPass) {
+        emailPasswordMatch = cleanInputPass.replace(/\s+/g, "") === cleanStoredEnvPass;
+      }
+
+      if (!emailPasswordMatch) {
+        return res.status(400).json({
+          error: "Mot de passe de l'email incorrect."
+        });
+      }
     }
 
     if (!newPassword || String(newPassword).length < 6) {

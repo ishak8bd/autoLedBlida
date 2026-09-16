@@ -294,12 +294,40 @@ export function DataProvider({ children }) {
     }
   };
 
-  const recoverAdminPassword = async ({ recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword }) => {
+  const checkFallbackCredentials = async ({ recoveryEmail, recoveryEmailPassword }) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/check-fallback-credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recoveryEmail, recoveryEmailPassword })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return { success: true, message: json.message, fallbackToken: json.fallbackToken };
+      }
+      return { success: false, error: json.error || "Identifiants incorrects" };
+    } catch {
+      // Local fallback check
+      const stored = data?.settings?.adminAuth;
+      if (!stored) {
+        return { success: false, error: "Aucun profil d'authentification configuré." };
+      }
+      if (stored.recoveryEmail?.trim().toLowerCase() !== recoveryEmail?.trim().toLowerCase()) {
+        return { success: false, error: "Adresse Gmail incorrecte ou non reconnue." };
+      }
+      if (stored.recoveryEmailPassword !== recoveryEmailPassword) {
+        return { success: false, error: "Mot de passe de l'email incorrect." };
+      }
+      return { success: true, message: "Identifiants validés !" };
+    }
+  };
+
+  const recoverAdminPassword = async ({ fallbackToken, recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/recover-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword })
+        body: JSON.stringify({ fallbackToken, recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword })
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -324,28 +352,28 @@ export function DataProvider({ children }) {
       if (!stored) {
         return { success: false, error: "Aucun profil d'authentification configuré." };
       }
-      if (
-        stored.recoveryEmail?.trim().toLowerCase() === recoveryEmail?.trim().toLowerCase() &&
-        stored.recoveryEmailPassword === recoveryEmailPassword
-      ) {
-        setData((prev) => {
-          const updated = {
-            ...prev,
-            settings: {
-              ...prev.settings,
-              adminPin: newPassword,
-              adminAuth: {
-                ...prev.settings?.adminAuth,
-                password: newPassword
-              }
-            }
-          };
-          localStorage.setItem("autoled_cache", JSON.stringify(updated));
-          return updated;
-        });
-        return { success: true };
+      if (stored.recoveryEmail?.trim().toLowerCase() !== recoveryEmail?.trim().toLowerCase()) {
+        return { success: false, error: "Adresse Gmail incorrecte ou non reconnue." };
       }
-      return { success: false, error: "Email de récupération ou mot de passe incorrect" };
+      if (stored.recoveryEmailPassword !== recoveryEmailPassword) {
+        return { success: false, error: "Mot de passe de l'email incorrect." };
+      }
+      setData((prev) => {
+        const updated = {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            adminPin: newPassword,
+            adminAuth: {
+              ...prev.settings?.adminAuth,
+              password: newPassword
+            }
+          }
+        };
+        localStorage.setItem("autoled_cache", JSON.stringify(updated));
+        return updated;
+      });
+      return { success: true };
     }
   };
 
@@ -1088,6 +1116,7 @@ export function DataProvider({ children }) {
         verifyAdminPassword,
         setupAdminCredentials,
         recoverAdminPassword,
+        checkFallbackCredentials,
         sendResetOtp,
         checkResetOtp,
         verifyResetOtp,

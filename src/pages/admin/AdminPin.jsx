@@ -29,6 +29,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     checkResetOtp,
     verifyResetOtp,
     recoverAdminPassword,
+    checkFallbackCredentials,
     verifyAdminToken
   } = useData();
 
@@ -77,8 +78,12 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     newPassword: "",
     confirmPassword: ""
   });
+  const [fallbackVerified, setFallbackVerified] = useState(false);
+  const [fallbackToken, setFallbackToken] = useState("");
+  const [isVerifyingFallback, setIsVerifyingFallback] = useState(false);
   const [showFallbackPass, setShowFallbackPass] = useState(false);
   const [showFallbackNewPass, setShowFallbackNewPass] = useState(false);
+  const [showFallbackConfirmPass, setShowFallbackConfirmPass] = useState(false);
   const [fallbackError, setFallbackError] = useState("");
   const [fallbackSuccess, setFallbackSuccess] = useState("");
 
@@ -330,26 +335,63 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     }
   };
 
-  // 5. Option B: Direct Fallback Rescue with Gmail + Email Password
-  const handleFallbackSubmit = async (e) => {
+  // 5a. Option B (Step 1): Check Direct Rescue Credentials (Gmail + Email Password)
+  const handleCheckFallbackSubmit = async (e) => {
     e.preventDefault();
     setFallbackError("");
     setFallbackSuccess("");
 
     if (!fallbackForm.email || !fallbackForm.email.includes("@")) {
       setFallbackError(
-        isRtl ? "يرجى إدخال عنوان Gmail المسجل." : "Veuillez entrer votre adresse Gmail."
+        isRtl
+          ? "عنوان Gmail غير صحيح أو غير مسجل."
+          : "Adresse Gmail incorrecte ou non reconnue."
       );
       return;
     }
-    if (!fallbackForm.emailPassword) {
+    if (!fallbackForm.emailPassword || fallbackForm.emailPassword.trim().length === 0) {
       setFallbackError(
         isRtl
-          ? "يرجى إدخال كلمة سر البريد الإلكتروني المسجلة."
-          : "Veuillez entrer le mot de passe de l'email enregistré."
+          ? "كلمة سر البريد غير صحيحة."
+          : "Mot de passe de l'email incorrect."
       );
       return;
     }
+
+    setIsVerifyingFallback(true);
+    const res = await checkFallbackCredentials({
+      recoveryEmail: fallbackForm.email,
+      recoveryEmailPassword: fallbackForm.emailPassword
+    });
+    setIsVerifyingFallback(false);
+
+    if (res.success) {
+      setFallbackVerified(true);
+      setFallbackToken(res.fallbackToken || "");
+      setFallbackSuccess(
+        isRtl
+          ? "تم التحقق من البيانات بنجاح ! أدخل الآن كلمة مرور المدير الجديدة."
+          : "Identifiants validés ! Vous pouvez maintenant définir votre nouveau mot de passe admin."
+      );
+    } else {
+      let errorMsg = res.error || (isRtl ? "بيانات الاسترجاع غير صحيحة." : "Identifiants incorrects.");
+      if (isRtl) {
+        if (res.error && res.error.toLowerCase().includes("adresse gmail")) {
+          errorMsg = "عنوان Gmail غير صحيح أو غير مسجل.";
+        } else if (res.error && res.error.toLowerCase().includes("mot de passe")) {
+          errorMsg = "كلمة سر البريد غير صحيحة.";
+        }
+      }
+      setFallbackError(errorMsg);
+    }
+  };
+
+  // 5b. Option B (Step 2): Set New Password once credentials are confirmed
+  const handleSetNewFallbackPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setFallbackError("");
+    setFallbackSuccess("");
+
     if (!fallbackForm.newPassword || fallbackForm.newPassword.length < 6) {
       setFallbackError(
         isRtl
@@ -367,6 +409,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
 
     setIsSubmitting(true);
     const res = await recoverAdminPassword({
+      fallbackToken,
       recoveryEmail: fallbackForm.email,
       recoveryEmailPassword: fallbackForm.emailPassword,
       newPassword: fallbackForm.newPassword
@@ -376,8 +419,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     if (res.success) {
       setFallbackSuccess(
         isRtl
-          ? "تم التحقق وتعيين كلمة المرور بنجاح! جاري الدخول..."
-          : "Vérification réussie ! Mot de passe réinitialisé avec succès."
+          ? "تم تغيير كلمة المرور بنجاح! جاري الدخول..."
+          : "Mot de passe réinitialisé avec succès ! Connexion en cours..."
       );
       setTimeout(() => {
         onAuthenticated();
@@ -386,8 +429,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
       setFallbackError(
         res.error ||
           (isRtl
-            ? "البريد الإلكتروني أو كلمة سر البريد غير صحيحة."
-            : "Gmail ou mot de passe de l'email incorrect.")
+            ? "تعذر تحديث كلمة المرور."
+            : "Impossible de réinitialiser le mot de passe.")
       );
     }
   };
@@ -832,7 +875,9 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                 type="button"
                 onClick={() => {
                   setMode("recovery_fallback");
-                  setFallbackForm((prev) => ({ ...prev, email: otpEmail }));
+                  setFallbackForm((prev) => ({ ...prev, email: otpEmail, newPassword: "", confirmPassword: "" }));
+                  setFallbackVerified(false);
+                  setFallbackToken("");
                   setFallbackError("");
                   setFallbackSuccess("");
                 }}
@@ -868,13 +913,26 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
           <div className="space-y-5 text-start">
             <div className="text-center space-y-1">
               <h2 className="text-2xl font-black text-white flex items-center justify-center gap-2">
-                <KeyRound className="w-5 h-5 text-amber-400" />
-                <span>{isRtl ? "استرجاع فوري (الخيار ب)" : "Secours Direct (Option B)"}</span>
+                {fallbackVerified ? (
+                  <>
+                    <Lock className="w-5 h-5 text-emerald-400" />
+                    <span>{isRtl ? "كلمة المرور الجديدة" : "Nouveau Mot de Passe"}</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-5 h-5 text-amber-400" />
+                    <span>{isRtl ? "استرجاع فوري (الخيار ب)" : "Secours Direct (Option B)"}</span>
+                  </>
+                )}
               </h2>
               <p className="text-xs text-zinc-400">
-                {isRtl
-                  ? "أدخل عنوان Gmail وكلمة سر البريد المسجلة لتعيين كلمة مرور جديدة فوراً دون انتظار الإيميل"
-                  : "Saisissez votre Gmail et le mot de passe de secours enregistré pour déverrouiller immédiatement"}
+                {fallbackVerified
+                  ? (isRtl
+                      ? "تم التحقق من البيانات بنجاح ! عيّن الآن كلمة مرور جديدة لحساب الإدارة"
+                      : "Identifiants validés avec succès ! Définissez maintenant votre nouveau mot de passe admin")
+                  : (isRtl
+                      ? "أدخل عنوان Gmail وكلمة سر البريد المسجلة للتحقق من هويتك وتعيين كلمة مرور جديدة"
+                      : "Saisissez votre Gmail et le mot de passe de secours enregistré pour déverrouiller immédiatement")}
               </p>
             </div>
 
@@ -892,98 +950,164 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
               </div>
             )}
 
-            <form onSubmit={handleFallbackSubmit} className="space-y-3.5">
-              {/* Gmail Address */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-brand-red" />
-                  <span>{isRtl ? "عنوان Gmail المسجل *" : "Adresse Gmail enregistrée *"}</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={fallbackForm.email}
-                  onChange={(e) => setFallbackForm({ ...fallbackForm, email: e.target.value })}
-                  placeholder="votre-email@gmail.com"
-                  className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                />
-              </div>
-
-              {/* Email Password / App Password */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isRtl ? "كلمة سر البريد / كود التطبيق المسجل *" : "Mot de passe de l'email enregistré *"}</span>
-                </label>
-                <div className="relative">
+            {!fallbackVerified ? (
+              /* --- ÉTAPE 1 : Vérification Gmail + Mot de passe email --- */
+              <form onSubmit={handleCheckFallbackSubmit} className="space-y-3.5">
+                {/* Gmail Address */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-brand-red" />
+                    <span>{isRtl ? "عنوان Gmail المسجل *" : "Adresse Gmail enregistrée *"}</span>
+                  </label>
                   <input
-                    type={showFallbackPass ? "text" : "password"}
+                    type="email"
                     required
-                    value={fallbackForm.emailPassword}
-                    onChange={(e) => setFallbackForm({ ...fallbackForm, emailPassword: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    value={fallbackForm.email}
+                    onChange={(e) => {
+                      setFallbackForm({ ...fallbackForm, email: e.target.value });
+                      setFallbackError("");
+                    }}
+                    placeholder="votre-email@gmail.com"
+                    className="w-full py-2.5 px-3.5 text-xs rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
                   />
+                </div>
+
+                {/* Email Password / App Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isRtl ? "كلمة سر البريد المسجلة *" : "Mot de passe de l'email enregistré *"}</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showFallbackPass ? "text" : "password"}
+                      required
+                      value={fallbackForm.emailPassword}
+                      onChange={(e) => {
+                        setFallbackForm({ ...fallbackForm, emailPassword: e.target.value });
+                        setFallbackError("");
+                      }}
+                      placeholder="••••••••"
+                      className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFallbackPass(!showFallbackPass)}
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                    >
+                      {showFallbackPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isVerifyingFallback}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>
+                    {isVerifyingFallback
+                      ? (isRtl ? "جاري التحقق من البيانات..." : "Vérification des identifiants...")
+                      : (isRtl ? "التحقق من البيانات" : "Vérifier les identifiants")}
+                  </span>
+                </button>
+              </form>
+            ) : (
+              /* --- ÉTAPE 2 : Nouveau mot de passe admin (affiché seulement si l'étape 1 est validée) --- */
+              <form onSubmit={handleSetNewFallbackPasswordSubmit} className="space-y-3.5">
+                {/* Badge Identité validée */}
+                <div className="p-3 rounded-xl bg-zinc-900/90 border border-emerald-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className="truncate">
+                      <p className="text-[10px] text-zinc-400">
+                        {isRtl ? "الهوية المؤكدة :" : "Identité confirmée :"}
+                      </p>
+                      <p className="text-xs font-semibold text-zinc-200 truncate font-mono">
+                        {fallbackForm.email}
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowFallbackPass(!showFallbackPass)}
-                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                    onClick={() => {
+                      setFallbackVerified(false);
+                      setFallbackSuccess("");
+                      setFallbackError("");
+                    }}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 underline shrink-0 px-2 py-1 cursor-pointer"
                   >
-                    {showFallbackPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {isRtl ? "تعديل" : "Modifier"}
                   </button>
                 </div>
-              </div>
 
-              {/* New Password */}
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-rose-500" />
-                  <span>{isRtl ? "كلمة المرور الجديدة (6+ خانات) *" : "Nouveau mot de passe admin (6+ caractères) *"}</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showFallbackNewPass ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={fallbackForm.newPassword}
-                    onChange={(e) => setFallbackForm({ ...fallbackForm, newPassword: e.target.value })}
-                    placeholder="Au moins 6 caractères"
-                    className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowFallbackNewPass(!showFallbackNewPass)}
-                    className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
-                  >
-                    {showFallbackNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
+                {/* New Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-rose-500" />
+                    <span>{isRtl ? "كلمة المرور الجديدة (6+ خانات) *" : "Nouveau mot de passe admin (6+ caractères) *"}</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showFallbackNewPass ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={fallbackForm.newPassword}
+                      onChange={(e) => setFallbackForm({ ...fallbackForm, newPassword: e.target.value })}
+                      placeholder={isRtl ? "6 خانات على الأقل" : "Au moins 6 caractères"}
+                      className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFallbackNewPass(!showFallbackNewPass)}
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                    >
+                      {showFallbackNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300">
-                  {isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={fallbackForm.confirmPassword}
-                  onChange={(e) => setFallbackForm({ ...fallbackForm, confirmPassword: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full py-2.5 px-3.5 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
-                />
-              </div>
+                {/* Confirm Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>{isRtl ? "تأكيد كلمة المرور الجديدة *" : "Confirmer le nouveau mot de passe *"}</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showFallbackConfirmPass ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={fallbackForm.confirmPassword}
+                      onChange={(e) => setFallbackForm({ ...fallbackForm, confirmPassword: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFallbackConfirmPass(!showFallbackConfirmPass)}
+                      className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
+                    >
+                      {showFallbackConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>{isSubmitting ? (isRtl ? "جاري التحقق..." : "Vérification...") : (isRtl ? "تأكيد ودخول فوري" : "Réinitialiser Immédiatement")}</span>
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-extrabold text-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? (isRtl ? "جاري الحفظ والدخول..." : "Enregistrement en cours...")
+                      : (isRtl ? "تأكيد كلمة المرور والدخول" : "Enregistrer et Déverrouiller")}
+                  </span>
+                </button>
+              </form>
+            )}
 
             <div className="pt-2 flex items-center justify-between text-xs text-zinc-400">
               <button
