@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useData } from "../context/DataContext";
-import { Megaphone, X, Truck, Calendar } from "lucide-react";
+import { X } from "lucide-react";
 
 export function HolidayBanner() {
   const { isRtl } = useLanguage();
@@ -19,9 +19,6 @@ export function HolidayBanner() {
     <div className="relative bg-gradient-to-r from-red-950 via-zinc-900 to-red-950 border-b border-brand-red/30 py-2.5 px-4 sm:px-6 z-30 transition-all duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full bg-brand-red/20 text-brand-red shrink-0 animate-bounce">
-            <Truck className="w-4 h-4" />
-          </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
             {badge && badge.trim() && (
