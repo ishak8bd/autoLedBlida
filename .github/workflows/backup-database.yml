@@ -1,0 +1,57 @@
+name: Weekly Database Backup
+
+# Déclenché automatiquement chaque dimanche à 03:00 UTC (04:00 en Algérie).
+# Peut aussi être déclenché manuellement à tout moment depuis l'onglet "Actions" sur GitHub.
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    name: Dump MongoDB Atlas
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Secret Presence
+        run: |
+          if [ -z "${{ secrets.MONGODB_URI }}" ]; then
+            echo "::error::Le secret MONGODB_URI n'est pas encore configuré dans Settings -> Secrets and variables -> Actions !"
+            exit 1
+          fi
+
+      - name: Install MongoDB Database Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-database-tools zip
+
+      - name: Dump MongoDB Database
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          mkdir -p dump_raw
+          mongodump --uri="$MONGODB_URI" --out=dump_raw --gzip
+
+      - name: Create Datestamp
+        id: datestamp
+        run: echo "date=$(date +%Y-%m-%d_%Hh%M)" >> "$GITHUB_OUTPUT"
+
+      - name: Compress Archive
+        env:
+          BACKUP_PASS: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          mkdir -p backup_export
+          if [ -n "$BACKUP_PASS" ]; then
+            # Si le secret optionnel BACKUP_PASSWORD est défini, chiffre l'archive avec mot de passe
+            zip -r -P "$BACKUP_PASS" backup_export/autoledblida-${{ steps.datestamp.outputs.date }}.zip dump_raw/
+          else
+            # Archive standard
+            zip -r backup_export/autoledblida-${{ steps.datestamp.outputs.date }}.zip dump_raw/
+          fi
+
+      - name: Upload Backup Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoledblida-backup-${{ steps.datestamp.outputs.date }}
+          path: backup_export/
+          retention-days: 90
