@@ -17,6 +17,8 @@ import { Category } from "./models/Category.js";
 import { Order } from "./models/Order.js";
 import { Appointment } from "./models/Appointment.js";
 import { Settings } from "./models/Settings.js";
+import { createAdminAuthMiddleware, validateRecoverySecret } from "./middleware/auth.js";
+import { resolveOrderPricing, calculateOrderTotal } from "../src/utils/orderCalculations.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,27 +96,7 @@ const orderLimiter = rateLimit({
 });
 
 // Admin JWT Authentication Middleware
-function requireAdminAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Authentification requise. Jeton manquant." });
-  }
-
-  const token = authHeader.slice(7).trim();
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.admin = decoded;
-    next();
-  } catch (err) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({
-        error: "Session expirée, veuillez vous reconnecter",
-        expired: true
-      });
-    }
-    return res.status(401).json({ error: "Jeton d'authentification invalide" });
-  }
-}
+const requireAdminAuth = createAdminAuthMiddleware(JWT_SECRET);
 
 // Check if string is a bcrypt hash ($2a$, $2b$, $2y$)
 function isBcryptHash(str) {
@@ -427,10 +409,17 @@ app.post("/api/orders", orderLimiter, async (req, res) => {
       ];
 
   const totalQty = items.reduce((s, it) => s + it.quantity, 0);
-  const calculatedSubtotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
-  const subtotal = req.body.subtotal !== undefined ? Number(req.body.subtotal) : calculatedSubtotal;
-  const dFee = Number(deliveryFee) || 0;
-  const total = req.body.total !== undefined ? Number(req.body.total) : (subtotal + dFee);
+  const pricing = resolveOrderPricing({
+    items,
+    quantity: totalQty,
+    productPrice,
+    deliveryFee,
+    subtotal: req.body.subtotal,
+    total: req.body.total
+  });
+  const subtotal = pricing.subtotal;
+  const dFee = pricing.deliveryFee;
+  const total = pricing.total;
 
   const displayProductName = items.length === 1 && items[0].quantity === 1
     ? items[0].productName
@@ -515,14 +504,13 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
   }
 
   const rawRecoverySecret = recoverySecret || emailPassword || recoveryEmailPassword;
-  if (!rawRecoverySecret || String(rawRecoverySecret).trim().length < 4) {
-    return res.status(400).json({
-      error: "Le code de récupération doit comporter au moins 4 caractères (PIN, mot ou phrase)."
-    });
+  const secretValidation = validateRecoverySecret(rawRecoverySecret);
+  if (!secretValidation.valid) {
+    return res.status(400).json({ error: secretValidation.error });
   }
 
   const hashedPassword = await bcrypt.hash(String(password), 10);
-  const hashedRecoverySecret = await bcrypt.hash(String(rawRecoverySecret).trim(), 10);
+  const hashedRecoverySecret = await bcrypt.hash(secretValidation.secret, 10);
 
   try {
     if (isMongo()) {
@@ -1905,7 +1893,10 @@ app.put("/api/admin/orders/:id", requireAdminAuth, async (req, res) => {
     const qty = req.body.quantity !== undefined ? Math.max(1, Number(req.body.quantity) || 1) : existing.quantity;
     const price = req.body.productPrice !== undefined ? Number(req.body.productPrice) || 0 : existing.productPrice;
     const dFee = req.body.deliveryFee !== undefined ? Number(req.body.deliveryFee) || 0 : (existing.deliveryFee || 0);
-    const total = req.body.total !== undefined ? Number(req.body.total) : (price * qty + dFee);
+    const sub = req.body.subtotal !== undefined
+      ? Number(req.body.subtotal)
+      : (req.body.productPrice !== undefined ? Number(req.body.productPrice) : (existing.subtotal ?? (price * qty)));
+    const total = req.body.total !== undefined ? Number(req.body.total) : calculateOrderTotal(sub, dFee);
 
     data.orders[idx] = {
       ...existing,

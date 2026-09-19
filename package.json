@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/index.js",
     "build": "vite build",
-    "test": "node --check server/index.js && vite build",
+    "test": "node --check server/index.js && node --test test/*.test.js && vite build",
     "server": "node server/index.js",
     "client": "vite",
     "dev": "concurrently \"npm run server\" \"npm run client\"",

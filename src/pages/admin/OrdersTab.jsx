@@ -23,6 +23,7 @@ import {
 import { useLanguage } from "../../context/LanguageContext";
 import { useData } from "../../context/DataContext";
 import { getWhatsAppUrl, ALGERIA_WILAYAS, getCommunesByWilaya, isValidAlgerianPhone, cleanAlgerianPhone } from "../../data/algeriaWilayasCommunes";
+import { calculateOrderTotal, deriveSubtotal } from "../../utils/orderCalculations";
 
 export function getOrderProductsSummary(order) {
   if (!order) return { isMulti: false, totalQty: 1, items: [] };
@@ -267,16 +268,8 @@ export function OrdersTab() {
     const curFee = order.deliveryFee !== undefined ? order.deliveryFee : (curType === "desk" ? wilayaFee.desk : wilayaFee.home);
     
     // Le prix sous-total est le prix des articles commandés sans tarif de livraison
-    let sub = 0;
-    if (order.subtotal !== undefined && Number(order.subtotal) > 0) {
-      sub = Number(order.subtotal);
-    } else if (order.total !== undefined && Number(order.total) > curFee) {
-      sub = Number(order.total) - curFee;
-    } else if (order.productPrice !== undefined) {
-      sub = Number(order.productPrice);
-    }
-
-    const tot = order.total !== undefined ? Number(order.total) : (sub + curFee);
+    const sub = deriveSubtotal(order);
+    const tot = order.total !== undefined ? Number(order.total) : calculateOrderTotal(sub, curFee);
 
     setEditingOrder({
       ...order,
@@ -320,7 +313,7 @@ export function OrdersTab() {
         productName: found.nameFr || found.nameAr || "",
         productPrice: found.price || 0,
         subtotal: sub,
-        total: sub + fee
+        total: calculateOrderTotal(sub, fee)
       }));
     }
   };
@@ -346,7 +339,7 @@ export function OrdersTab() {
       const fee = Math.max(0, Number(editingOrder.deliveryFee) || 0);
       const finalTotal = editingOrder.total !== undefined && editingOrder.total !== ""
         ? Math.max(0, Number(editingOrder.total) || 0)
-        : (sub + fee);
+        : calculateOrderTotal(sub, fee);
 
       const payload = {
         ...editingOrder,
@@ -993,13 +986,13 @@ export function OrdersTab() {
                         const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(newWilaya) : { home: 500, desk: 300 };
                         const curType = editingOrder.deliveryType || "home";
                         const newFee = curType === "desk" ? (feeObj.desk || 0) : (feeObj.home || 0);
-                        const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
+                        const sub = deriveSubtotal(editingOrder);
                         setEditingOrder({
                           ...editingOrder,
                           wilaya: newWilaya,
                           commune: communes[0] || "",
                           deliveryFee: newFee,
-                          total: sub + newFee
+                          total: calculateOrderTotal(sub, newFee)
                         });
                       }}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white focus:outline-none focus:border-brand-red text-sm"
@@ -1050,12 +1043,12 @@ export function OrdersTab() {
                         onClick={() => {
                           const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
                           const newFee = feeObj.home || 0;
-                          const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
+                          const sub = deriveSubtotal(editingOrder);
                           setEditingOrder({
                             ...editingOrder,
                             deliveryType: "home",
                             deliveryFee: newFee,
-                            total: sub + newFee
+                            total: calculateOrderTotal(sub, newFee)
                           });
                         }}
                         className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -1073,12 +1066,12 @@ export function OrdersTab() {
                         onClick={() => {
                           const feeObj = getWilayaDeliveryFee ? getWilayaDeliveryFee(editingOrder.wilaya) : { home: 500, desk: 300 };
                           const newFee = feeObj.desk || 0;
-                          const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
+                          const sub = deriveSubtotal(editingOrder);
                           setEditingOrder({
                             ...editingOrder,
                             deliveryType: "desk",
                             deliveryFee: newFee,
-                            total: sub + newFee
+                            total: calculateOrderTotal(sub, newFee)
                           });
                         }}
                         className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -1105,11 +1098,11 @@ export function OrdersTab() {
                       onChange={(e) => {
                         const rawVal = e.target.value;
                         const newFee = rawVal === "" ? "" : Math.max(0, parseInt(rawVal, 10) || 0);
-                        const sub = Number(editingOrder.subtotal ?? editingOrder.productPrice) || 0;
+                        const sub = deriveSubtotal(editingOrder);
                         setEditingOrder({
                           ...editingOrder,
                           deliveryFee: newFee,
-                          total: sub + (Number(newFee) || 0)
+                          total: calculateOrderTotal(sub, newFee)
                         });
                       }}
                       className="w-full px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-brand-red text-sm"
@@ -1191,7 +1184,7 @@ export function OrdersTab() {
                           ...editingOrder,
                           productPrice: newSub,
                           subtotal: newSub,
-                          total: (Number(newSub) || 0) + fee
+                          total: calculateOrderTotal(newSub, fee)
                         });
                       }}
                       className="w-full px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono font-bold focus:outline-none focus:border-brand-red text-center sm:text-left text-sm"
