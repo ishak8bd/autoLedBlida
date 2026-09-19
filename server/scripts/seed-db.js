@@ -155,9 +155,10 @@ async function seedDatabase() {
     ...(data.settings || {}),
     deliveryFees: data.deliveryFees || {}
   };
-  // Strip recoveryEmailPassword from being stored in Mongo
-  if (settingsData.adminAuth && settingsData.adminAuth.recoveryEmailPassword) {
+  // Strip recoverySecret and recoveryEmailPassword from being stored in Mongo
+  if (settingsData.adminAuth) {
     delete settingsData.adminAuth.recoveryEmailPassword;
+    delete settingsData.adminAuth.recoverySecret;
   }
 
   await Settings.findOneAndUpdate(

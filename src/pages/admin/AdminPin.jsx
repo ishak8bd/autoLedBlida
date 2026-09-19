@@ -46,12 +46,12 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   // Setup form
   const [setupForm, setSetupForm] = useState({
     email: "",
-    emailPassword: "",
+    recoverySecret: "",
     phone: "",
     password: "",
     confirmPassword: ""
   });
-  const [showSetupEmailPass, setShowSetupEmailPass] = useState(false);
+  const [showSetupSecret, setShowSetupSecret] = useState(false);
   const [showSetupPass, setShowSetupPass] = useState(false);
   const [setupError, setSetupError] = useState("");
   const [setupSuccess, setSetupSuccess] = useState("");
@@ -74,14 +74,14 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
   // Option B (Direct Fallback Rescue)
   const [fallbackForm, setFallbackForm] = useState({
     email: "",
-    emailPassword: "",
+    recoverySecret: "",
     newPassword: "",
     confirmPassword: ""
   });
   const [fallbackVerified, setFallbackVerified] = useState(false);
   const [fallbackToken, setFallbackToken] = useState("");
   const [isVerifyingFallback, setIsVerifyingFallback] = useState(false);
-  const [showFallbackPass, setShowFallbackPass] = useState(false);
+  const [showFallbackSecret, setShowFallbackSecret] = useState(false);
   const [showFallbackNewPass, setShowFallbackNewPass] = useState(false);
   const [showFallbackConfirmPass, setShowFallbackConfirmPass] = useState(false);
   const [fallbackError, setFallbackError] = useState("");
@@ -170,11 +170,11 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
       );
       return;
     }
-    if (!setupForm.emailPassword || setupForm.emailPassword.trim().length === 0) {
+    if (!setupForm.recoverySecret || setupForm.recoverySecret.trim().length < 4) {
       setSetupError(
         isRtl
-          ? "يرجى إدخال كلمة سر البريد الإلكتروني (أو كلمة سر التطبيق)."
-          : "Veuillez entrer le mot de passe de l'email (ou mot de passe d'application)."
+          ? "يجب أن يتكون رمز الاسترجاع من 4 خانات على الأقل (رمز PIN، كلمة أو جملة)."
+          : "Le code de récupération doit comporter au moins 4 caractères (PIN, mot ou phrase)."
       );
       return;
     }
@@ -196,7 +196,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     setIsSubmitting(true);
     const res = await setupAdminCredentials({
       email: setupForm.email,
-      emailPassword: setupForm.emailPassword,
+      recoverySecret: setupForm.recoverySecret,
       phone: setupForm.phone,
       password: setupForm.password
     });
@@ -349,11 +349,11 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
       );
       return;
     }
-    if (!fallbackForm.emailPassword || fallbackForm.emailPassword.trim().length === 0) {
+    if (!fallbackForm.recoverySecret || fallbackForm.recoverySecret.trim().length < 4) {
       setFallbackError(
         isRtl
-          ? "كلمة سر البريد غير صحيحة."
-          : "Mot de passe de l'email incorrect."
+          ? "رمز الاسترجاع غير صحيح (4 خانات على الأقل)."
+          : "Code de récupération incorrect (au moins 4 caractères)."
       );
       return;
     }
@@ -361,7 +361,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     setIsVerifyingFallback(true);
     const res = await checkFallbackCredentials({
       recoveryEmail: fallbackForm.email,
-      recoveryEmailPassword: fallbackForm.emailPassword
+      recoverySecret: fallbackForm.recoverySecret
     });
     setIsVerifyingFallback(false);
 
@@ -378,8 +378,8 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
       if (isRtl) {
         if (res.error && res.error.toLowerCase().includes("adresse gmail")) {
           errorMsg = "عنوان Gmail غير صحيح أو غير مسجل.";
-        } else if (res.error && res.error.toLowerCase().includes("mot de passe")) {
-          errorMsg = "كلمة سر البريد غير صحيحة.";
+        } else if (res.error && (res.error.toLowerCase().includes("code") || res.error.toLowerCase().includes("mot de passe"))) {
+          errorMsg = "رمز الاسترجاع غير صحيح.";
         }
       }
       setFallbackError(errorMsg);
@@ -411,7 +411,7 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
     const res = await recoverAdminPassword({
       fallbackToken,
       recoveryEmail: fallbackForm.email,
-      recoveryEmailPassword: fallbackForm.emailPassword,
+      recoverySecret: fallbackForm.recoverySecret,
       newPassword: fallbackForm.newPassword
     });
     setIsSubmitting(false);
@@ -575,33 +575,37 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                 />
               </div>
 
-              {/* Email Password / App Password */}
+              {/* Generic Recovery Secret (PIN, word, phrase) */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isRtl ? "كلمة سر البريد (أو كلمة سر التطبيق) *" : "Mot de passe de l'email (ou code d'application) *"}</span>
+                  <span>
+                    {isRtl
+                      ? "رمز الاسترجاع (رمز PIN، كلمة أو جملة — حسب اختيارك) *"
+                      : "Code de récupération (PIN, mot ou phrase — au choix) *"}
+                  </span>
                 </label>
                 <div className="relative">
                   <input
-                    type={showSetupEmailPass ? "text" : "password"}
+                    type={showSetupSecret ? "text" : "password"}
                     required
-                    value={setupForm.emailPassword}
-                    onChange={(e) => setSetupForm({ ...setupForm, emailPassword: e.target.value })}
-                    placeholder="••••••••"
+                    value={setupForm.recoverySecret}
+                    onChange={(e) => setSetupForm({ ...setupForm, recoverySecret: e.target.value })}
+                    placeholder={isRtl ? "مثال: 1234 أو كلمة سرية" : "ex. 1234, un mot ou une phrase"}
                     className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowSetupEmailPass(!showSetupEmailPass)}
+                    onClick={() => setShowSetupSecret(!showSetupSecret)}
                     className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
                   >
-                    {showSetupEmailPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showSetupSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 <p className="text-[10px] text-zinc-400">
                   {isRtl
-                    ? "يُستخدم لإرسال كود التحقق أو كطريقة استرجاع احتياطية فورية."
-                    : "Sert à l'envoi du code OTP et comme clé de secours d'urgence."}
+                    ? "4 خانات على الأقل : يُستخدم فقط في حال فقدان الوصول إلى حساب المدير."
+                    : "Au moins 4 caractères : à utiliser uniquement si vous perdez l'accès à votre compte admin."}
                 </p>
               </div>
 
@@ -972,30 +976,34 @@ export function AdminPin({ onAuthenticated, onBackToSite }) {
                   />
                 </div>
 
-                {/* Email Password / App Password */}
+                {/* Recovery Secret (PIN, word, phrase) */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                     <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isRtl ? "كلمة سر البريد المسجلة *" : "Mot de passe de l'email enregistré *"}</span>
+                    <span>
+                      {isRtl
+                        ? "رمز الاسترجاع (PIN، كلمة أو جملة) *"
+                        : "Code de récupération (PIN, mot ou phrase) *"}
+                    </span>
                   </label>
                   <div className="relative">
                     <input
-                      type={showFallbackPass ? "text" : "password"}
+                      type={showFallbackSecret ? "text" : "password"}
                       required
-                      value={fallbackForm.emailPassword}
+                      value={fallbackForm.recoverySecret}
                       onChange={(e) => {
-                        setFallbackForm({ ...fallbackForm, emailPassword: e.target.value });
+                        setFallbackForm({ ...fallbackForm, recoverySecret: e.target.value });
                         setFallbackError("");
                       }}
-                      placeholder="••••••••"
+                      placeholder={isRtl ? "رمز PIN، كلمة أو جملة" : "Votre PIN, mot ou phrase"}
                       className="w-full py-2.5 px-3.5 pr-10 rtl:pr-3.5 rtl:pl-10 text-xs font-mono rounded-xl bg-zinc-900 border border-zinc-700 text-white focus:outline-none focus:border-brand-red"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowFallbackPass(!showFallbackPass)}
+                      onClick={() => setShowFallbackSecret(!showFallbackSecret)}
                       className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"
                     >
-                      {showFallbackPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showFallbackSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>

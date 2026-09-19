@@ -30,6 +30,7 @@ const AdminAuthSchema = new mongoose.Schema(
     password: { type: String, default: "" },
     recoveryEmail: { type: String, trim: true, lowercase: true, default: "" },
     recoveryPhone: { type: String, trim: true, default: "" },
+    recoverySecret: { type: String, default: "" },
     recoveryEmailPassword: { type: String, default: "" }
   },
   { _id: false }

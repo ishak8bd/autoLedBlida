@@ -181,12 +181,13 @@ export function DataProvider({ children }) {
     }
   };
 
-  const setupAdminCredentials = async ({ email, emailPassword, phone, password }) => {
+  const setupAdminCredentials = async ({ email, recoverySecret, emailPassword, phone, password }) => {
+    const finalSecret = recoverySecret || emailPassword;
     try {
       const res = await fetch(`${API_BASE}/api/admin/setup-credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, emailPassword, phone, password })
+        body: JSON.stringify({ email, recoverySecret: finalSecret, phone, password })
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -198,7 +199,8 @@ export function DataProvider({ children }) {
             adminPin: password,
             adminAuth: {
               recoveryEmail: email.trim().toLowerCase(),
-              recoveryEmailPassword,
+              recoverySecret: finalSecret,
+              hasRecoverySecret: true,
               recoveryPhone: (phone || "").trim(),
               password
             }
@@ -217,7 +219,8 @@ export function DataProvider({ children }) {
             adminPin: password,
             adminAuth: {
               recoveryEmail: email.trim().toLowerCase(),
-              recoveryEmailPassword,
+              recoverySecret: finalSecret,
+              hasRecoverySecret: true,
               recoveryPhone: (phone || "").trim(),
               password
             }
@@ -294,18 +297,19 @@ export function DataProvider({ children }) {
     }
   };
 
-  const checkFallbackCredentials = async ({ recoveryEmail, recoveryEmailPassword }) => {
+  const checkFallbackCredentials = async ({ recoveryEmail, recoverySecret, recoveryEmailPassword }) => {
+    const finalSecret = recoverySecret || recoveryEmailPassword;
     try {
       const res = await fetch(`${API_BASE}/api/admin/check-fallback-credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recoveryEmail, recoveryEmailPassword })
+        body: JSON.stringify({ recoveryEmail, recoverySecret: finalSecret })
       });
       const json = await res.json();
       if (res.ok && json.success) {
         return { success: true, message: json.message, fallbackToken: json.fallbackToken };
       }
-      return { success: false, error: json.error || "Identifiants incorrects" };
+      return { success: false, error: json.error || "Code de récupération incorrect" };
     } catch {
       // Local fallback check
       const stored = data?.settings?.adminAuth;
@@ -315,19 +319,21 @@ export function DataProvider({ children }) {
       if (stored.recoveryEmail?.trim().toLowerCase() !== recoveryEmail?.trim().toLowerCase()) {
         return { success: false, error: "Adresse Gmail incorrecte ou non reconnue." };
       }
-      if (stored.recoveryEmailPassword !== recoveryEmailPassword) {
-        return { success: false, error: "Mot de passe de l'email incorrect." };
+      const storedSecret = stored.recoverySecret || stored.recoveryEmailPassword;
+      if (storedSecret !== finalSecret) {
+        return { success: false, error: "Code de récupération incorrect." };
       }
-      return { success: true, message: "Identifiants validés !" };
+      return { success: true, message: "Code de récupération validé !" };
     }
   };
 
-  const recoverAdminPassword = async ({ fallbackToken, recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword }) => {
+  const recoverAdminPassword = async ({ fallbackToken, recoveryEmail, recoverySecret, recoveryEmailPassword, recoveryPhone, newPassword }) => {
+    const finalSecret = recoverySecret || recoveryEmailPassword;
     try {
       const res = await fetch(`${API_BASE}/api/admin/recover-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fallbackToken, recoveryEmail, recoveryEmailPassword, recoveryPhone, newPassword })
+        body: JSON.stringify({ fallbackToken, recoveryEmail, recoverySecret: finalSecret, recoveryPhone, newPassword })
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -355,8 +361,9 @@ export function DataProvider({ children }) {
       if (stored.recoveryEmail?.trim().toLowerCase() !== recoveryEmail?.trim().toLowerCase()) {
         return { success: false, error: "Adresse Gmail incorrecte ou non reconnue." };
       }
-      if (stored.recoveryEmailPassword !== recoveryEmailPassword) {
-        return { success: false, error: "Mot de passe de l'email incorrect." };
+      const storedSecret = stored.recoverySecret || stored.recoveryEmailPassword;
+      if (storedSecret !== finalSecret) {
+        return { success: false, error: "Code de récupération incorrect." };
       }
       setData((prev) => {
         const updated = {
@@ -377,12 +384,13 @@ export function DataProvider({ children }) {
     }
   };
 
-  const changeAdminCredentials = async ({ currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone }) => {
+  const changeAdminCredentials = async ({ currentPassword, newPassword, recoveryEmail, recoverySecret, recoveryEmailPassword, recoveryPhone }) => {
+    const finalSecret = recoverySecret || recoveryEmailPassword;
     try {
       const res = await fetch(`${API_BASE}/api/admin/change-credentials`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone })
+        body: JSON.stringify({ currentPassword, newPassword, recoveryEmail, recoverySecret: finalSecret, recoveryPhone })
       });
       if (res.status === 401) saveAdminToken("");
       const json = await res.json();
@@ -392,7 +400,7 @@ export function DataProvider({ children }) {
             ...prev.settings?.adminAuth,
             ...(newPassword ? { password: newPassword } : {}),
             ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
-            ...(recoveryEmailPassword ? { recoveryEmailPassword, hasRecoveryEmailPassword: true } : {}),
+            ...(finalSecret ? { recoverySecret: finalSecret, hasRecoverySecret: true, hasRecoveryEmailPassword: true } : {}),
             ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
           };
           return {
@@ -413,7 +421,7 @@ export function DataProvider({ children }) {
           ...prev.settings?.adminAuth,
           ...(newPassword ? { password: newPassword } : {}),
           ...(recoveryEmail ? { recoveryEmail: recoveryEmail.trim().toLowerCase() } : {}),
-          ...(recoveryEmailPassword ? { recoveryEmailPassword, hasRecoveryEmailPassword: true } : {}),
+          ...(finalSecret ? { recoverySecret: finalSecret, hasRecoverySecret: true, hasRecoveryEmailPassword: true } : {}),
           ...(recoveryPhone !== undefined ? { recoveryPhone: (recoveryPhone || "").trim() } : {})
         };
         const updated = {

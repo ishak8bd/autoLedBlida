@@ -270,7 +270,8 @@ app.get("/api/data", async (req, res) => {
             isConfigured: Boolean(s.adminAuth?.password),
             recoveryEmail: s.adminAuth?.recoveryEmail || "",
             hasRecoveryPhone: Boolean(s.adminAuth?.recoveryPhone),
-            hasRecoveryEmailPassword: Boolean(s.adminAuth?.recoveryEmailPassword)
+            hasRecoverySecret: Boolean(s.adminAuth?.recoverySecret || s.adminAuth?.recoveryEmailPassword),
+            hasRecoveryEmailPassword: Boolean(s.adminAuth?.recoverySecret || s.adminAuth?.recoveryEmailPassword)
           }
         }
       };
@@ -290,7 +291,8 @@ app.get("/api/data", async (req, res) => {
           isConfigured: Boolean(data.settings?.adminAuth?.password),
           recoveryEmail: data.settings?.adminAuth?.recoveryEmail || "",
           hasRecoveryPhone: Boolean(data.settings?.adminAuth?.recoveryPhone),
-          hasRecoveryEmailPassword: Boolean(data.settings?.adminAuth?.recoveryEmailPassword)
+          hasRecoverySecret: Boolean(data.settings?.adminAuth?.recoverySecret || data.settings?.adminAuth?.recoveryEmailPassword),
+          hasRecoveryEmailPassword: Boolean(data.settings?.adminAuth?.recoverySecret || data.settings?.adminAuth?.recoveryEmailPassword)
         }
       }
     };
@@ -487,7 +489,8 @@ app.get("/api/admin/auth-status", async (req, res) => {
     res.json({
       isConfigured,
       hasRecoveryPhone: Boolean(adminAuth?.recoveryPhone),
-      hasRecoveryEmailPassword: Boolean(adminAuth?.recoveryEmailPassword)
+      hasRecoverySecret: Boolean(adminAuth?.recoverySecret || adminAuth?.recoveryEmailPassword),
+      hasRecoveryEmailPassword: Boolean(adminAuth?.recoverySecret || adminAuth?.recoveryEmailPassword)
     });
   } catch (err) {
     console.error("Auth status error:", err);
@@ -502,7 +505,7 @@ app.get("/api/admin/verify-token", requireAdminAuth, (req, res) => {
 
 // 4. Admin: Setup Initial Credentials (rate-limited, hashed with bcrypt)
 app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
-  const { email, phone, password, emailPassword, recoveryEmailPassword } = req.body;
+  const { email, phone, password, recoverySecret, emailPassword, recoveryEmailPassword } = req.body;
 
   if (!email || !email.includes("@")) {
     return res.status(400).json({ error: "Email de récupération valide requis" });
@@ -511,12 +514,15 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
     return res.status(400).json({ error: "Le mot de passe admin doit comporter au moins 6 caractères ou chiffres" });
   }
 
-  const hashedPassword = await bcrypt.hash(String(password), 10);
-  const rawRecoveryPass = emailPassword || recoveryEmailPassword;
-  let hashedRecoveryPass = undefined;
-  if (rawRecoveryPass && String(rawRecoveryPass).trim()) {
-    hashedRecoveryPass = await bcrypt.hash(String(rawRecoveryPass).trim(), 10);
+  const rawRecoverySecret = recoverySecret || emailPassword || recoveryEmailPassword;
+  if (!rawRecoverySecret || String(rawRecoverySecret).trim().length < 4) {
+    return res.status(400).json({
+      error: "Le code de récupération doit comporter au moins 4 caractères (PIN, mot ou phrase)."
+    });
   }
+
+  const hashedPassword = await bcrypt.hash(String(password), 10);
+  const hashedRecoverySecret = await bcrypt.hash(String(rawRecoverySecret).trim(), 10);
 
   try {
     if (isMongo()) {
@@ -527,7 +533,8 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
             "adminAuth.recoveryEmail": email.trim().toLowerCase(),
             "adminAuth.recoveryPhone": (phone || "").trim(),
             "adminAuth.password": hashedPassword,
-            ...(hashedRecoveryPass ? { "adminAuth.recoveryEmailPassword": hashedRecoveryPass } : {}),
+            "adminAuth.recoverySecret": hashedRecoverySecret,
+            "adminAuth.recoveryEmailPassword": hashedRecoverySecret,
             adminPin: hashedPassword
           }
         },
@@ -540,7 +547,8 @@ app.post("/api/admin/setup-credentials", authLimiter, async (req, res) => {
         recoveryEmail: email.trim().toLowerCase(),
         recoveryPhone: (phone || "").trim(),
         password: hashedPassword,
-        ...(hashedRecoveryPass ? { recoveryEmailPassword: hashedRecoveryPass } : {})
+        recoverySecret: hashedRecoverySecret,
+        recoveryEmailPassword: hashedRecoverySecret
       };
       data.settings.adminPin = hashedPassword;
       writeData(data);
@@ -852,7 +860,7 @@ app.post("/api/admin/verify-reset-otp", authLimiter, async (req, res) => {
 
 // 8a. Admin Option B: Verify Direct Rescue Credentials (Step 1)
 app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) => {
-  const { recoveryEmail, recoveryEmailPassword } = req.body;
+  const { recoveryEmail, recoverySecret, recoveryEmailPassword } = req.body;
   try {
     let storedAuth = null;
     if (isMongo()) {
@@ -877,38 +885,38 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
       });
     }
 
-    // 2. Password check: distinguish if email password is wrong
-    const cleanInputPass = String(recoveryEmailPassword || "").trim();
-    if (!cleanInputPass) {
+    // 2. Secret check: generic secret (PIN, word, sentence) with minimum length 4
+    const cleanInputSecret = String(recoverySecret || recoveryEmailPassword || "").trim();
+    if (!cleanInputSecret || cleanInputSecret.length < 4) {
       return res.status(400).json({
-        error: "Mot de passe de l'email incorrect."
+        error: "Code de récupération incorrect (au moins 4 caractères)."
       });
     }
 
-    const storedRecoveryPass = storedAuth.recoveryEmailPassword;
+    const storedRecoverySecret = storedAuth.recoverySecret || storedAuth.recoveryEmailPassword;
     const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 
-    let emailPasswordMatch = false;
-    if (storedRecoveryPass) {
-      if (isBcryptHash(storedRecoveryPass)) {
-        emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
-        if (!emailPasswordMatch && cleanInputPass.includes(" ")) {
-          emailPasswordMatch = await bcrypt.compare(cleanInputPass.replace(/\s+/g, ""), storedRecoveryPass);
+    let secretMatch = false;
+    if (storedRecoverySecret) {
+      if (isBcryptHash(storedRecoverySecret)) {
+        secretMatch = await bcrypt.compare(cleanInputSecret, storedRecoverySecret);
+        if (!secretMatch && cleanInputSecret.includes(" ")) {
+          secretMatch = await bcrypt.compare(cleanInputSecret.replace(/\s+/g, ""), storedRecoverySecret);
         }
       } else {
-        emailPasswordMatch =
-          cleanInputPass === storedRecoveryPass ||
-          cleanInputPass.replace(/\s+/g, "") === String(storedRecoveryPass).replace(/\s+/g, "");
+        secretMatch =
+          cleanInputSecret === storedRecoverySecret ||
+          cleanInputSecret.replace(/\s+/g, "") === String(storedRecoverySecret).replace(/\s+/g, "");
       }
     }
-    if (!emailPasswordMatch && cleanStoredEnvPass) {
-      emailPasswordMatch = cleanInputPass.replace(/\s+/g, "") === cleanStoredEnvPass;
+    if (!secretMatch && cleanStoredEnvPass) {
+      secretMatch = cleanInputSecret.replace(/\s+/g, "") === cleanStoredEnvPass;
     }
 
-    if (!emailPasswordMatch) {
-      console.warn(`[SECURITY ALERT] Échec mot de passe de secours depuis IP: ${req.ip}`);
+    if (!secretMatch) {
+      console.warn(`[SECURITY ALERT] Échec code de récupération de secours depuis IP: ${req.ip}`);
       return res.status(400).json({
-        error: "Mot de passe de l'email incorrect."
+        error: "Code de récupération incorrect."
       });
     }
 
@@ -920,7 +928,7 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
 
     return res.json({
       success: true,
-      message: "Identifiants de secours validés !",
+      message: "Code de récupération validé !",
       fallbackToken
     });
   } catch (err) {
@@ -931,7 +939,7 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
 
 // 8b. Admin Option B: Reset Password with Verified Fallback Token or Credentials (Step 2)
 app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
-  const { fallbackToken, recoveryEmail, recoveryEmailPassword, newPassword } = req.body;
+  const { fallbackToken, recoveryEmail, recoverySecret, recoveryEmailPassword, newPassword } = req.body;
   try {
     let storedAuth = null;
     if (isMongo()) {
@@ -969,36 +977,36 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
         });
       }
 
-      const cleanInputPass = String(recoveryEmailPassword || "").trim();
-      if (!cleanInputPass) {
+      const cleanInputSecret = String(recoverySecret || recoveryEmailPassword || "").trim();
+      if (!cleanInputSecret || cleanInputSecret.length < 4) {
         return res.status(400).json({
-          error: "Mot de passe de l'email incorrect."
+          error: "Code de récupération incorrect (au moins 4 caractères)."
         });
       }
 
-      const storedRecoveryPass = storedAuth.recoveryEmailPassword;
+      const storedRecoverySecret = storedAuth.recoverySecret || storedAuth.recoveryEmailPassword;
       const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 
-      let emailPasswordMatch = false;
-      if (storedRecoveryPass) {
-        if (isBcryptHash(storedRecoveryPass)) {
-          emailPasswordMatch = await bcrypt.compare(cleanInputPass, storedRecoveryPass);
-          if (!emailPasswordMatch && cleanInputPass.includes(" ")) {
-            emailPasswordMatch = await bcrypt.compare(cleanInputPass.replace(/\s+/g, ""), storedRecoveryPass);
+      let secretMatch = false;
+      if (storedRecoverySecret) {
+        if (isBcryptHash(storedRecoverySecret)) {
+          secretMatch = await bcrypt.compare(cleanInputSecret, storedRecoverySecret);
+          if (!secretMatch && cleanInputSecret.includes(" ")) {
+            secretMatch = await bcrypt.compare(cleanInputSecret.replace(/\s+/g, ""), storedRecoverySecret);
           }
         } else {
-          emailPasswordMatch =
-            cleanInputPass === storedRecoveryPass ||
-            cleanInputPass.replace(/\s+/g, "") === String(storedRecoveryPass).replace(/\s+/g, "");
+          secretMatch =
+            cleanInputSecret === storedRecoverySecret ||
+            cleanInputSecret.replace(/\s+/g, "") === String(storedRecoverySecret).replace(/\s+/g, "");
         }
       }
-      if (!emailPasswordMatch && cleanStoredEnvPass) {
-        emailPasswordMatch = cleanInputPass.replace(/\s+/g, "") === cleanStoredEnvPass;
+      if (!secretMatch && cleanStoredEnvPass) {
+        secretMatch = cleanInputSecret.replace(/\s+/g, "") === cleanStoredEnvPass;
       }
 
-      if (!emailPasswordMatch) {
+      if (!secretMatch) {
         return res.status(400).json({
-          error: "Mot de passe de l'email incorrect."
+          error: "Code de récupération incorrect."
         });
       }
     }
@@ -1039,7 +1047,7 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
 
 // 9. Admin: Change Credentials (protected by requireAdminAuth)
 app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => {
-  const { currentPassword, newPassword, recoveryEmail, recoveryEmailPassword, recoveryPhone } = req.body;
+  const { currentPassword, newPassword, recoveryEmail, recoverySecret, recoveryEmailPassword, recoveryPhone } = req.body;
   try {
     let storedAuth = null;
     let fallbackPin = "1234";
@@ -1123,9 +1131,14 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
       updateFields["adminAuth.recoveryPhone"] = String(recoveryPhone).trim();
     }
 
-    if (recoveryEmailPassword && String(recoveryEmailPassword).trim()) {
-      const hashedRecoveryPass = await bcrypt.hash(String(recoveryEmailPassword).trim(), 10);
-      updateFields["adminAuth.recoveryEmailPassword"] = hashedRecoveryPass;
+    const rawSecret = recoverySecret || recoveryEmailPassword;
+    if (rawSecret && String(rawSecret).trim()) {
+      if (String(rawSecret).trim().length < 4) {
+        return res.status(400).json({ error: "Le code de récupération doit comporter au moins 4 caractères (PIN, mot ou phrase)." });
+      }
+      const hashedRecoverySecret = await bcrypt.hash(String(rawSecret).trim(), 10);
+      updateFields["adminAuth.recoverySecret"] = hashedRecoverySecret;
+      updateFields["adminAuth.recoveryEmailPassword"] = hashedRecoverySecret;
     }
 
     if (isMongo()) {
@@ -1141,6 +1154,7 @@ app.post("/api/admin/change-credentials", requireAdminAuth, async (req, res) => 
           ...data.settings.adminAuth,
           ...(updateFields["adminAuth.password"] ? { password: updateFields["adminAuth.password"] } : {}),
           ...(updateFields["adminAuth.recoveryEmail"] ? { recoveryEmail: updateFields["adminAuth.recoveryEmail"] } : {}),
+          ...(updateFields["adminAuth.recoverySecret"] ? { recoverySecret: updateFields["adminAuth.recoverySecret"] } : {}),
           ...(updateFields["adminAuth.recoveryEmailPassword"] ? { recoveryEmailPassword: updateFields["adminAuth.recoveryEmailPassword"] } : {}),
           ...(updateFields["adminAuth.recoveryPhone"] ? { recoveryPhone: updateFields["adminAuth.recoveryPhone"] } : {})
         };

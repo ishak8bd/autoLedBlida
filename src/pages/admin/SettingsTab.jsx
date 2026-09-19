@@ -32,7 +32,7 @@ export function SettingsTab() {
     newPassword: "",
     confirmNewPassword: "",
     recoveryEmail: settings.adminAuth?.recoveryEmail || "",
-    recoveryEmailPassword: "",
+    recoverySecret: "",
     recoveryPhone: settings.adminAuth?.recoveryPhone || ""
   });
 
@@ -405,9 +405,11 @@ export function SettingsTab() {
           <div className="max-w-md">
             <div className="flex items-center justify-between mb-1">
               <label className="text-zinc-400 block text-xs">
-                {isRtl ? "كلمة سر بريد الاسترجاع (الخيار ب للاسترجاع الفوري)" : "Mot de passe de l'email de récupération"}
+                {isRtl
+                  ? "رمز الاسترجاع (رمز PIN، كلمة أو جملة — حسب اختيارك)"
+                  : "Code de récupération (PIN, mot ou phrase — au choix)"}
               </label>
-              {data?.settings?.adminAuth?.hasRecoveryEmailPassword ? (
+              {(data?.settings?.adminAuth?.hasRecoverySecret || data?.settings?.adminAuth?.hasRecoveryEmailPassword) ? (
                 <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>{isRtl ? "مُعيّن ونشط" : "Actif dans la base"}</span>
@@ -422,9 +424,9 @@ export function SettingsTab() {
             <div className="relative">
               <input
                 type={showEmailPass ? "text" : "password"}
-                value={authForm.recoveryEmailPassword}
-                onChange={(e) => setAuthForm({ ...authForm, recoveryEmailPassword: e.target.value })}
-                placeholder={isRtl ? "أدخل كلمة سر جديدة لتغييرها في أي وقت (أو اترك فارغاً للحفظ)" : "Saisissez un nouveau mot de passe pour changer (ou vide pour conserver)"}
+                value={authForm.recoverySecret}
+                onChange={(e) => setAuthForm({ ...authForm, recoverySecret: e.target.value })}
+                placeholder={isRtl ? "4 خانات على الأقل (PIN، كلمة أو جملة — أو اترك فارغاً للحفظ)" : "Au moins 4 caractères : PIN, mot ou phrase (ou vide pour conserver)"}
                 className="w-full px-3 py-2 pr-10 rtl:pr-3 rtl:pl-10 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-red"
               />
               <button
@@ -437,8 +439,8 @@ export function SettingsTab() {
             </div>
             <p className="text-[10px] text-zinc-400 mt-1">
               {isRtl
-                ? "يمكنك تغيير كلمة سر بريد الاسترجاع في أي وقت هنا. ستُستخدم فوراً في الخيار (ب) للطوارئ."
-                : "Vous pouvez modifier ce mot de passe de secours à tout moment ici. Il sera utilisable immédiatement dans l'Option B."}
+                ? "يُستخدم فقط في حال فقدان الوصول إلى حساب المدير. يمكنك استخدام رمز PIN أو أي كلمة أو جملة تختارها."
+                : "À utiliser uniquement si vous perdez l'accès à votre compte admin. Vous pouvez choisir un code PIN, un mot ou une phrase."}
             </p>
           </div>
         </div>
@@ -475,11 +477,21 @@ export function SettingsTab() {
               }
             }
 
+            if (authForm.recoverySecret && authForm.recoverySecret.trim().length < 4) {
+              setAuthMsg({
+                type: "error",
+                text: isRtl
+                  ? "يجب أن يتكون رمز الاسترجاع من 4 خانات على الأقل (رمز PIN، كلمة أو جملة)."
+                  : "Le code de récupération doit comporter au moins 4 caractères (PIN, mot ou phrase)."
+              });
+              return;
+            }
+
             const res = await changeAdminCredentials({
               currentPassword: authForm.currentPassword,
               newPassword: authForm.newPassword || undefined,
               recoveryEmail: authForm.recoveryEmail || undefined,
-              recoveryEmailPassword: authForm.recoveryEmailPassword || undefined,
+              recoverySecret: authForm.recoverySecret || undefined,
               recoveryPhone: authForm.recoveryPhone
             });
 
@@ -495,7 +507,7 @@ export function SettingsTab() {
                 currentPassword: "",
                 newPassword: "",
                 confirmNewPassword: "",
-                recoveryEmailPassword: ""
+                recoverySecret: ""
               }));
             } else {
               setAuthMsg({
