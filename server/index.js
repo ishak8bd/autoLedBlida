@@ -894,7 +894,6 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
     }
 
     const storedRecoverySecret = storedAuth.recoverySecret || storedAuth.recoveryEmailPassword;
-    const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 
     let secretMatch = false;
     if (storedRecoverySecret) {
@@ -908,9 +907,6 @@ app.post("/api/admin/check-fallback-credentials", authLimiter, async (req, res) 
           cleanInputSecret === storedRecoverySecret ||
           cleanInputSecret.replace(/\s+/g, "") === String(storedRecoverySecret).replace(/\s+/g, "");
       }
-    }
-    if (!secretMatch && cleanStoredEnvPass) {
-      secretMatch = cleanInputSecret.replace(/\s+/g, "") === cleanStoredEnvPass;
     }
 
     if (!secretMatch) {
@@ -985,7 +981,6 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
       }
 
       const storedRecoverySecret = storedAuth.recoverySecret || storedAuth.recoveryEmailPassword;
-      const cleanStoredEnvPass = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 
       let secretMatch = false;
       if (storedRecoverySecret) {
@@ -999,9 +994,6 @@ app.post("/api/admin/recover-password", authLimiter, async (req, res) => {
             cleanInputSecret === storedRecoverySecret ||
             cleanInputSecret.replace(/\s+/g, "") === String(storedRecoverySecret).replace(/\s+/g, "");
         }
-      }
-      if (!secretMatch && cleanStoredEnvPass) {
-        secretMatch = cleanInputSecret.replace(/\s+/g, "") === cleanStoredEnvPass;
       }
 
       if (!secretMatch) {
