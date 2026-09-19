@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Syntax Check & Vite Build
+    name: Syntax Check, Unit Tests & Vite Build
     runs-on: ubuntu-latest
 
     steps:
@@ -26,6 +26,9 @@ jobs:
 
       - name: Verify Backend Syntax
         run: node --check server/index.js
+
+      - name: Run Test Suite
+        run: node --test test/*.test.js
 
       - name: Verify Frontend Production Build
         run: npm run build
