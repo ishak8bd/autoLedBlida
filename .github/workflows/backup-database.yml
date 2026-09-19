@@ -25,12 +25,27 @@ jobs:
         with:
           version: "latest"
 
-      - name: Dump MongoDB Database
+      - name: Dump MongoDB Database (BSON + JSON)
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
-          mkdir -p dump_raw
-          mongodump --uri="$MONGODB_URI" --out=dump_raw --gzip
+          mkdir -p dump_raw/mongodb_bson dump_raw/json_lisible
+          
+          # 1. Extraction officielle MongoDB (format BSON pour restauration)
+          mongodump --uri="$MONGODB_URI" --out=dump_raw/mongodb_bson
+          
+          # 2. Conversion automatique de chaque collection en JSON lisible
+          find dump_raw/mongodb_bson -name "*.bson" | while read -r f; do
+            col=$(basename "$f" .bson)
+            echo "Conversion de $col en JSON lisible..."
+            bsondump --pretty --outFile="dump_raw/json_lisible/${col}.json" "$f"
+          done
+
+          # 3. Fichier explicatif
+          echo "Sauvegarde Auto LED Blida" > dump_raw/README.txt
+          echo "=========================" >> dump_raw/README.txt
+          echo "1. Dossier 'json_lisible/' : Vos donnees au format JSON lisible directement dans le Bloc-notes." >> dump_raw/README.txt
+          echo "2. Dossier 'mongodb_bson/' : Fichiers BSON officiels pour restauration avec mongorestore." >> dump_raw/README.txt
 
       - name: Create Datestamp
         id: datestamp
